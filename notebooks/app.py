@@ -11,7 +11,7 @@ from dash.dependencies import Input, Output, State
 
 
 #Read in processed data from github
-hhi_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/house-hunters-international/main/data/data_w_lat_lon_v2.csv')
+hhi_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/house-hunters-international/main/data/data_w_lat_lon_v2.csv',encoding='latin-1')
 
 origin_city_choices = hhi_df['Origin'].unique()
 
@@ -122,3 +122,32 @@ def plot_stuff(dd0):
 
 if __name__=='__main__':
 	app.run_server()
+
+
+
+
+import plotly.graph_objects as go
+import pandas as pd
+
+df_airports = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/2011_february_us_airport_traffic.csv')
+df_airports.head()
+
+df_flight_paths = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/2011_february_aa_flight_paths.csv')
+df_flight_paths.head()
+
+fig = go.Figure()
+
+flight_paths = []
+for i in range(len(df_flight_paths)):
+    fig.add_trace(
+        go.Scattergeo(
+            locationmode = 'USA-states',
+            lon = [df_flight_paths['start_lon'][i], df_flight_paths['end_lon'][i]],
+            lat = [df_flight_paths['start_lat'][i], df_flight_paths['end_lat'][i]],
+            mode = 'lines',
+            line = dict(width = 1,color = 'red'),
+            opacity = float(df_flight_paths['cnt'][i]) / float(df_flight_paths['cnt'].max()),
+        )
+    )
+
+fig.show()
