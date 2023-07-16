@@ -11,15 +11,14 @@ from dash.dependencies import Input, Output, State
 
 
 #Read in processed data from github
-hhi_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/house-hunters-international/main/data/data_w_lat_lon_v2.csv',encoding='latin-1')
+#hhi_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/house-hunters-international/main/data/data_w_lat_lon_v2.csv',encoding='latin-1')
+hhi_df = pd.read_csv('/Users/jonzimmerman/Desktop/Data Projects/House Hunters International/data/data_w_lat_lon_v2.csv',encoding='latin-1')
 
 country_counts = pd.DataFrame(hhi_df.groupby('MoveFromCountry').size()).reset_index()
 country_counts.columns = ['MoveFromCountry', 'num_eps_to_filter']
 
 hhi_df = hhi_df.merge(country_counts, on='MoveFromCountry', how='left')
-
-
-
+hhi_df['lon_orig'] = pd.to_numeric(hhi_df['lon_orig'],errors='coerce')
 
 origin_city_choices = hhi_df['MoveFromCity'].unique()
 origin_country_choices = hhi_df['MoveFromCountry'].unique()
@@ -66,7 +65,7 @@ app.layout = html.Div([
                 ])
             ])
         ]),
-        dcc.Tab(label='Countries',value='tab-2',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Origins',value='tab-2',style=tab_style, selected_style=tab_selected_style,
         children = [
             dbc.Row([
                 dbc.Col([
@@ -90,7 +89,7 @@ app.layout = html.Div([
 
             ])
         ]),
-        dcc.Tab(label='Origin',value='tab-3',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Destinations',value='tab-3',style=tab_style, selected_style=tab_selected_style,
         children=[
             dbc.Row([
                 dbc.Col([
@@ -153,7 +152,8 @@ def render_content(tab):
         ])
 
     
-#Cards for Destination Map
+#------------------------ TAB #2: Origins ------------------------#
+#Cards for Origin Map
 @app.callback(
     Output('card_a','children'),
     Output('card_b','children'),
@@ -161,26 +161,39 @@ def render_content(tab):
     Input('dropdown_a','value')
 )
 
-def info_about_destinations(dd_a):
+def info_about_origins(dd_a):
 
     filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
-    filtered = filtered[filtered['num_eps_to_filter']>2]
+    #filtered = filtered[filtered['MoveToCountry']!=dd_a]
+    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
+
+    #filtered = filtered[filtered['num_eps_to_filter']>2]
 
     #Metric 1 --> # of episodes
     metric1 = filtered.shape[0]
 
-    #Metric 2 --> avg distance (excluding 0 and NAs)
-    remove0s = filtered[(filtered['distance_km']>0) & filtered['distance_km'].notnull()]
+    #Metric 2 --> avg distance travelling away
+    remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
     metric2 = round(remove0s['distance_km'].mean(),2)
 
+
+    #use this for another plot
+    # visit_country_counts = pd.DataFrame(filtered.groupby('MoveToCountry').size()).reset_index()
+    # visit_country_counts.columns = ['MoveToCountry', 'Count']
+    # most_pop_country = visit_country_counts.sort_values('Count', ascending=False).head(1)['MoveToCountry'].values[0]
+
     #Metric 3 --> max distance
+    country_ref = filtered['distance_km'].max()
+
     metric3 = round(filtered['distance_km'].max(),2)
+
+    max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
 
 
     card_a = dbc.Card([
         dbc.CardBody([
-            html.P(f'# Episodes Leaving {dd_a}'),
-            html.H5(f"{metric1} Episodes")
+            html.P(f'# episodes leaving {dd_a}'),
+            html.H5(f"{metric1} episodes")
         ])
     ],
     style={'display': 'inline-block',
@@ -194,8 +207,8 @@ def info_about_destinations(dd_a):
 
     card_b = dbc.Card([
         dbc.CardBody([
-            html.P(f'Avg Distance Travelled from {dd_a}'),
-            html.H5(f"{metric2}")
+            html.P(f'Average distance to travel'),
+            html.H5(f"{metric2} km")
         ])
     ],
     style={'display': 'inline-block',
@@ -209,8 +222,8 @@ def info_about_destinations(dd_a):
 
     card_c = dbc.Card([
         dbc.CardBody([
-            html.P(f'Max Distance Travelled from {dd_a}'),
-            html.H5(f"{metric3}")
+            html.P(f'Max distance to travel'),
+            html.H5(f"{metric3} km to {max_dist_country}")
         ])
     ],
     style={'display': 'inline-block',
@@ -225,45 +238,48 @@ def info_about_destinations(dd_a):
     return card_a, card_b, card_c
 
 
-#Plot Destination Cities from Origin
+#Plot Origin Cities
 @app.callback(
     Output('map_origin_cities','figure'),
     Input('dropdown_a','value')
 )
-def plot_map_dest_cities(dd_a):
+def plot_map_origin_cities(dd_a):
     
     filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
-    filtered = filtered[filtered['MoveToCountry']!=dd_a]
+    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
+    #filtered = filtered[filtered['MoveToCountry']!=dd_a]
 
-    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
-    city_counts.columns = ['Destination', 'DestCount']
+    city_counts = pd.DataFrame(filtered.groupby('Origin').size()).reset_index()
+    city_counts.columns = ['Origin', 'OriginCount']
 
-    new_df = filtered.merge(city_counts, on='Destination', how='inner')
-
+    new_df = filtered.merge(city_counts, on='Origin', how='inner')
 
 
     fig = px.scatter_mapbox(
         new_df, 
-        lat="lat_dest", lon="lon_dest", 
-        hover_name="Destination", 
+        lat="lat_orig", lon="lon_orig", 
+        hover_name="Origin", 
         #color_continuous_scale="balance",
         #color="per_gop",
         hover_data = {
-            "Destination":True,
+            "Origin":True,
+            "OriginCount":True,
             "lat_orig":False,
-            "lon_orig":False,
+            "lon_orig":False
         },
-        # labels={
-        #     'Destination':'Destination'
-        # },
-        size = "DestCount",
-        zoom=1)
+        labels={
+            'OriginCount':'# Episodes',
+            'Origin':'City'
+        },
+        size = "OriginCount",
+        zoom=3)
         #center = {"lat": 37.0902, "lon": -95.7129})
     
     fig.update_layout(mapbox_style="carto-positron",margin={"r":0,"t":0,"l":0,"b":0})
 
     return fig
 
+#------------------------ TAB #3: Destinations ------------------------#
 
 #Filter origin city choices by parent dropdown (origin country)
 @app.callback(
@@ -379,40 +395,40 @@ def plot_map_dest_cities(dd1):
     return fig
 
 
-#Plot Treemap Cities from Origin
-@app.callback(
-    Output('tree_map_dest_cities','figure'),
-    Input('dropdown1','value')
-)
-def treemap_dest_cities(dd1):
-    filtered = hhi_df[hhi_df['MoveFromCity']==dd1]
+# #Plot Treemap Cities from Origin
+# @app.callback(
+#     Output('tree_map_dest_cities','figure'),
+#     Input('dropdown1','value')
+# )
+# def treemap_dest_cities(dd1):
+#     filtered = hhi_df[hhi_df['MoveFromCity']==dd1]
 
-    tree_fig = px.treemap(
-        filtered, 
-        path = ['MoveToCity'],
-        values = 'Destination Cities',
-        template='plotly_dark',
-        title=f'Destination Cities from {dd1}',
-        color = 'MoveToCity',
-        # color_discrete_map={
-        #     'Crossed Kármán Line':'#626ffb', 
-        #     'Elite Spacewalker':'#b064fc', 
-        #     'Space Resident': '#ef563b',
-        #     'Frequent Walker': '#f45498',
-        #     'Frequent Flyer': '#ff94fc',
-        #     'Elite Spaceflyer': '#a8f064',
-        #     'Moonwalker': '#24cce6',
-        #     'Memorial': '#ffa45c',
-        #     'ISS Visitor': '#00cc96'
-        # }   
-    )
+#     tree_fig = px.treemap(
+#         filtered, 
+#         path = ['MoveToCity'],
+#         values = 'Destination Cities',
+#         template='plotly_dark',
+#         title=f'Destination Cities from {dd1}',
+#         color = 'MoveToCity',
+#         # color_discrete_map={
+#         #     'Crossed Kármán Line':'#626ffb', 
+#         #     'Elite Spacewalker':'#b064fc', 
+#         #     'Space Resident': '#ef563b',
+#         #     'Frequent Walker': '#f45498',
+#         #     'Frequent Flyer': '#ff94fc',
+#         #     'Elite Spaceflyer': '#a8f064',
+#         #     'Moonwalker': '#24cce6',
+#         #     'Memorial': '#ffa45c',
+#         #     'ISS Visitor': '#00cc96'
+#         # }   
+#     )
 
-    tree_fig.update_traces(
-        hovertemplate='Cities=%{value}'
-    )
+#     tree_fig.update_traces(
+#         hovertemplate='Cities=%{value}'
+#     )
 
 
-    return tree_fig
+#     return tree_fig
 
 
 
