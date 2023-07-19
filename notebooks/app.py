@@ -110,15 +110,13 @@ app.layout = html.Div([
                         options=[{'label': i, 'value': i} for i in origin_country_choices],
                         value=origin_country_choices[0]
                     ),
-                ],width=6),
-                dbc.Col([
-                     dcc.Dropdown(
+                    dcc.Dropdown(
                         id='dropdown1',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_city_choices],
                         value=origin_city_choices[0]
                     ),
-                ],width=6)
+                ],width=12)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -184,9 +182,7 @@ def info_about_origins(dd_a):
 
     #Metric 3 --> max distance
     country_ref = filtered['distance_km'].max()
-
     metric3 = round(filtered['distance_km'].max(),2)
-
     max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
 
 
@@ -275,7 +271,10 @@ def plot_map_origin_cities(dd_a):
         zoom=3)
         #center = {"lat": 37.0902, "lon": -95.7129})
     
-    fig.update_layout(mapbox_style="carto-positron",margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
 
     return fig
 
@@ -302,20 +301,25 @@ def set_city_options(selected_origin_country):
 def info_about_destinations(dd0):
 
     filtered = hhi_df[hhi_df['MoveFromCity']==dd0]
+    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
 
-    #Metric 1 --> avg distance travelled
+    #Metric 1 --> # of episodes travelling to destination
+    metric1 = filtered.shape[0]
+
+    #Metric 2 --> avg distance travelled
     remove0s = filtered[(filtered['distance_km']>0) & filtered['distance_km'].notnull()]
-    metric1 = round(remove0s['distance_km'].mean(),2)
+    metric2 = round(remove0s['distance_km'].mean(),2)
 
-    #Metric 2 --> max distance travelled
-    metric2 = round(filtered['distance_km'].max(),2)
+    #Metric 3 --> max distance travelled
+    country_ref = filtered['distance_km'].max()
+    metric3 = round(filtered['distance_km'].max(),2)
 
-
+    max_dist_city = filtered[filtered['distance_km']==country_ref]['Destination'].values[0]
 
     card0 = dbc.Card([
         dbc.CardBody([
-            html.P(f'Avg Distance Travelled from {dd0}'),
-            html.H5(f"{metric1} km")
+            html.P(f'# episodes leaving from {dd0}'),
+            html.H5(f"{metric1} episodes")
         ])
     ],
     style={'display': 'inline-block',
@@ -327,10 +331,11 @@ def info_about_destinations(dd0):
            'fontSize':16},
     outline=True)
 
+
     card1 = dbc.Card([
         dbc.CardBody([
-            html.P(f'Max Distance Travelled'),
-            html.H5(f"{metric2}")
+            html.P(f'Average distance to travel'),
+            html.H5(f"{metric2} km")
         ])
     ],
     style={'display': 'inline-block',
@@ -344,8 +349,8 @@ def info_about_destinations(dd0):
 
     card2 = dbc.Card([
         dbc.CardBody([
-            html.P('Card3'),
-            html.H5("Metric 3")
+            html.P(f'Max distance to travel'),
+            html.H5(f"{metric3} km to {max_dist_city}")
         ])
     ],
     style={'display': 'inline-block',
@@ -367,30 +372,61 @@ def info_about_destinations(dd0):
 )
 def plot_map_dest_cities(dd1):
     
-    filtered = hhi_df[hhi_df['MoveFromCity']==dd1]
+    filtered = hhi_df[hhi_df['Origin']==dd1]
+    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
+
+    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+    city_counts.columns = ['Destination', 'DestinationCount']
+    new_df = filtered.merge(city_counts, on='Destination', how='inner')
+    new_df['Key'] = 'Destination'
+
+    orig_lat = new_df['lat_orig'][0]
+    orig_lon = new_df['lon_orig'][0]
+
+
+    #Add a row of the origin as destination and color it differently
+    new_row = {
+        'index': 0, 'ep_summary': 'Text','air_date': '01-Jan-99','ep_nums':0,
+        'ep_title':'Title','episode':0,'season':0,'year':0,
+        'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
+        'NumBlanks':0,'Origin':'text',
+        'Destination':dd1,
+        'GeoCategory':'All','lat_orig':0,'lon_orig':0,
+        'lat_dest':orig_lat,
+        'lon_dest':orig_lon,
+        'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+        'Key':'Origin'
+    }
+    new_df = new_df.append(new_row, ignore_index = True)
 
     fig = px.scatter_mapbox(
-        filtered, 
+        new_df, 
         lat="lat_dest", lon="lon_dest", 
         hover_name="Destination", 
         #color_continuous_scale="balance",
-        #color="per_gop",
+        color="Key",
         hover_data = {
             "Destination":True,
             #"ep_title":True,
             #"air_date":True,
-            "lat_orig":False,
-            "lon_orig":False,
+            "lat_dest":False,
+            "lat_dest":False,
+            "lon_dest":False,
+            "Key":False
         },
         labels={
-            'Destination':'Destination'#,
+            'Destination':'City'#,
             #'Episode Title':'ep_title',
         },
-        #size = "gop_dem_total",
-        zoom=1)
-        #center = {"lat": 37.0902, "lon": -95.7129})
+        size = "DestinationCount",
+        zoom=2,
+        center = {"lat": orig_lat, "lon": orig_lon})
     
-    fig.update_layout(mapbox_style="carto-positron",margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        margin={"r":0,"t":0,"l":0,"b":0},
+        showlegend=False
+    )
 
     return fig
 
