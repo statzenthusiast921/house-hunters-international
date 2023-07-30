@@ -12,6 +12,12 @@ from dash.dependencies import Input, Output, State
 
 #Read in processed data from github
 hhi_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/house-hunters-international/main/data/data_w_lat_lon_v2.csv',encoding='latin-1')
+hhi_df = hhi_df[
+    (hhi_df['Skip']=="Can get data") & 
+    (hhi_df['NumBlanks']==0) &
+    (~hhi_df['Origin'].str.contains(', United States',na=False))
+]
+
 #hhi_df = pd.read_csv('/Users/jonzimmerman/Desktop/Data Projects/House Hunters International/data/data_w_lat_lon_v2.csv',encoding='latin-1')
 
 country_counts = pd.DataFrame(hhi_df.groupby('MoveFromCountry').size()).reset_index()
@@ -21,7 +27,8 @@ hhi_df = hhi_df.merge(country_counts, on='MoveFromCountry', how='left')
 hhi_df['lon_orig'] = pd.to_numeric(hhi_df['lon_orig'],errors='coerce')
 
 origin_city_choices = hhi_df['MoveFromCity'].unique()
-origin_country_choices = hhi_df['MoveFromCountry'].unique()
+origin_country_choices = sorted(hhi_df['MoveFromCountry'].unique())
+destination_country_choices = sorted(hhi_df['MoveToCountry'].unique())
 
 # Country --> City Dictionary
 df_for_dict = hhi_df[['MoveFromCountry','MoveFromCity']]
@@ -59,11 +66,40 @@ app.layout = html.Div([
     dcc.Tabs([
         dcc.Tab(label='Welcome',value='tab-1',style=tab_style, selected_style=tab_selected_style,
         children = [
-            dbc.Row([
-                dbc.Col([
-                  html.P('Test')  
-                ])
-            ])
+            html.Div([
+                html.H1(dcc.Markdown('''**Welcome To My House Hunters International Dashboard!**''')),
+                html.Br()
+                   ]),   
+                html.Div([
+                    html.P(dcc.Markdown('''**What is the purpose of this dashboard?**''')),
+                ],style={'text-decoration': 'underline'}),
+                html.Div([
+                    html.P("This dashboard attempts to answer several questions:"),
+                    html.P("1.) blah blah 1?"),
+                    html.P("2.) blah blah 2?"),
+                    html.P("3.) blah blah 3?")
+                ]),
+                html.Div([
+                    html.P(dcc.Markdown('''**What data is being used for this analysis?**''')),
+                ],style={'text-decoration': 'underline'}),   
+                html.Div([
+                       html.P(["Data" ,html.A(" here ",href="https://www.ahrq.gov/sdoh/data-analytics/sdoh-data.html")])
+                ]),
+                html.Div([
+                    html.P(dcc.Markdown('''**How was the data analyzed?**''')),
+                ],style={'text-decoration': 'underline'}),
+                html.Div([
+                    html.P(children=['.sadfasdf'])
+                ]),
+                html.Div([
+                    html.P(dcc.Markdown('''**What are the limitations of this data?**''')),
+                ],style={'text-decoration': 'underline'}),
+                html.Div(
+                    children=[
+                       html.P("Dsdfadsfdsf."),
+                       html.P(["asdfladskfadsf"])
+                    ]
+                )
         ]),
         dcc.Tab(label='Origins',value='tab-2',style=tab_style, selected_style=tab_selected_style,
         children = [
@@ -79,11 +115,20 @@ app.layout = html.Div([
                 ],width=4),
             ]),
             dbc.Row([
+                dbc.RadioItems(
+                        id='radio1',
+                        options=[
+                            {'label': ' Origins', 'value': 'Origins'},
+                            {'label': ' Destinations', 'value': 'Destinations'}
+                        ],
+                        value='Origins',
+                        labelStyle={'display': 'inline-block','text-align': 'left'}
+                ),
                 dcc.Dropdown(
                         id='dropdown_a',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_country_choices],
-                        value=origin_country_choices[0]
+                        value='United States'
                     ),
                 dcc.Graph(id='map_origin_cities')
 
@@ -151,132 +196,250 @@ def render_content(tab):
 
     
 #------------------------ TAB #2: Origins ------------------------#
+
+#Filter origin city choices by parent dropdown (origin country)
+@app.callback(
+    Output('dropdown0', 'options'), #--> filter cities
+    Output('dropdown0', 'value'),
+    Input('radio1', 'value') #--> choose country
+)
+def set_dd_options_from_radio_button(selected_radio_button_value):
+        
+        if selected_radio_button_value == 'Origins':
+            options = [{'label': x, 'value': x} for x in origin_country_choices]
+            value = origin_country_choices[0]
+        else:
+            options = [{'label': x, 'value': x} for x in destination_country_choices]
+            #value = destination_country_choices[0]
+            value = 'Portugal'
+        
+        return options, value
+
 #Cards for Origin Map
 @app.callback(
     Output('card_a','children'),
     Output('card_b','children'),
     Output('card_c','children'),
-    Input('dropdown_a','value')
+    Input('dropdown_a','value'),
+    Input('radio1','value')
 )
 
-def info_about_origins(dd_a):
+def info_about_origins(dd_a, radio_select):
 
-    filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
-    #filtered = filtered[filtered['MoveToCountry']!=dd_a]
-    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
+    if 'Origins' in radio_select:
 
-    #filtered = filtered[filtered['num_eps_to_filter']>2]
+        filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
+    
+        #Metric 1 --> # of episodes
+        metric1 = filtered.shape[0]
 
-    #Metric 1 --> # of episodes
-    metric1 = filtered.shape[0]
-
-    #Metric 2 --> avg distance travelling away
-    remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
-    metric2 = round(remove0s['distance_km'].mean(),2)
+        #Metric 2 --> avg distance travelling away
+        remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
+        metric2 = round(remove0s['distance_km'].mean(),2)
 
 
-    #use this for another plot
-    # visit_country_counts = pd.DataFrame(filtered.groupby('MoveToCountry').size()).reset_index()
-    # visit_country_counts.columns = ['MoveToCountry', 'Count']
-    # most_pop_country = visit_country_counts.sort_values('Count', ascending=False).head(1)['MoveToCountry'].values[0]
+        #use this for another plot
+        # visit_country_counts = pd.DataFrame(filtered.groupby('MoveToCountry').size()).reset_index()
+        # visit_country_counts.columns = ['MoveToCountry', 'Count']
+        # most_pop_country = visit_country_counts.sort_values('Count', ascending=False).head(1)['MoveToCountry'].values[0]
 
-    #Metric 3 --> max distance
-    country_ref = filtered['distance_km'].max()
-    metric3 = round(filtered['distance_km'].max(),2)
-    max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
+        #Metric 3 --> max distance
+        country_ref = filtered['distance_km'].max()
+        metric3 = round(filtered['distance_km'].max(),2)
+        max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
 
 
-    card_a = dbc.Card([
-        dbc.CardBody([
-            html.P(f'# episodes leaving {dd_a}'),
-            html.H5(f"{metric1} episodes")
-        ])
-    ],
-    style={'display': 'inline-block',
-           'width': '100%',
-           'text-align': 'center',
-           'background-color': '#70747c',
-           'color':'white',
-           'fontWeight': 'bold',
-           'fontSize':16},
-    outline=True)
+        card_a = dbc.Card([
+            dbc.CardBody([
+                html.P(f'# episodes leaving {dd_a}'),
+                html.H5(f"{metric1} episodes")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
 
-    card_b = dbc.Card([
-        dbc.CardBody([
-            html.P(f'Average distance to travel'),
-            html.H5(f"{metric2} km")
-        ])
-    ],
-    style={'display': 'inline-block',
-           'width': '100%',
-           'text-align': 'center',
-           'background-color': '#70747c',
-           'color':'white',
-           'fontWeight': 'bold',
-           'fontSize':16},
-    outline=True)
+        card_b = dbc.Card([
+            dbc.CardBody([
+                html.P(f'Average distance to travel'),
+                html.H5(f"{metric2} km")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
 
-    card_c = dbc.Card([
-        dbc.CardBody([
-            html.P(f'Max distance to travel'),
-            html.H5(f"{metric3} km to {max_dist_country}")
-        ])
-    ],
-    style={'display': 'inline-block',
-           'width': '100%',
-           'text-align': 'center',
-           'background-color': '#70747c',
-           'color':'white',
-           'fontWeight': 'bold',
-           'fontSize':16},
-    outline=True)
+        card_c = dbc.Card([
+            dbc.CardBody([
+                html.P(f'Max distance to travel'),
+                html.H5(f"{metric3} km to {max_dist_country}")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
 
-    return card_a, card_b, card_c
+        return card_a, card_b, card_c
+    else:
 
+        filtered = hhi_df[hhi_df['MoveToCountry']==dd_a]
+    
+        #Metric 1 --> # of episodes
+        metric1 = filtered.shape[0]
+
+        #Metric 2 --> avg distance travelling away
+        remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
+        metric2 = round(remove0s['distance_km'].mean(),2)
+
+        #Metric 3 --> max distance
+        country_ref = filtered['distance_km'].max()
+        metric3 = round(filtered['distance_km'].max(),2)
+        max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveFromCountry'].values[0]
+
+        card_a = dbc.Card([
+            dbc.CardBody([
+                html.P(f'# episodes leaving {dd_a}'),
+                html.H5(f"{metric1} episodes")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
+
+        card_b = dbc.Card([
+            dbc.CardBody([
+                html.P(f'Average distance to travel'),
+                html.H5(f"{metric2} km")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
+
+        card_c = dbc.Card([
+            dbc.CardBody([
+                html.P(f'Max distance to travel'),
+                html.H5(f"{metric3} km from {max_dist_country}")
+            ])
+        ],
+        style={'display': 'inline-block',
+            'width': '100%',
+            'text-align': 'center',
+            'background-color': '#70747c',
+            'color':'white',
+            'fontWeight': 'bold',
+            'fontSize':16},
+        outline=True)
+
+        return card_a, card_b, card_c
 
 #Plot Origin Cities
 @app.callback(
     Output('map_origin_cities','figure'),
-    Input('dropdown_a','value')
+    Input('dropdown_a','value'),
+    Input('radio1','value')
 )
-def plot_map_origin_cities(dd_a):
+def plot_map_origin_cities(dd_a, radio_select):
+
+    if 'Origins' in radio_select:
     
-    filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
-    filtered = filtered[(filtered['Skip']=="Can get data") & (filtered['GeoCategory']=="All")]
-    #filtered = filtered[filtered['MoveToCountry']!=dd_a]
+        filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
+        #filtered = filtered[(filtered['GeoCategory']=="All")]
+        #filtered = filtered[filtered['MoveToCountry']!=dd_a]
 
-    city_counts = pd.DataFrame(filtered.groupby('Origin').size()).reset_index()
-    city_counts.columns = ['Origin', 'OriginCount']
+        city_counts = pd.DataFrame(filtered.groupby('Origin').size()).reset_index()
+        city_counts.columns = ['Origin', 'OriginCount']
 
-    new_df = filtered.merge(city_counts, on='Origin', how='inner')
+        new_df = filtered.merge(city_counts, on='Origin', how='inner')
 
 
-    fig = px.scatter_mapbox(
-        new_df, 
-        lat="lat_orig", lon="lon_orig", 
-        hover_name="Origin", 
-        #color_continuous_scale="balance",
-        #color="per_gop",
-        hover_data = {
-            "Origin":True,
-            "OriginCount":True,
-            "lat_orig":False,
-            "lon_orig":False
-        },
-        labels={
-            'OriginCount':'# Episodes',
-            'Origin':'City'
-        },
-        size = "OriginCount",
-        zoom=3)
-        #center = {"lat": 37.0902, "lon": -95.7129})
-    
-    fig.update_layout(
-        mapbox_style="carto-positron",
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
+        fig = px.scatter_mapbox(
+            new_df, 
+            lat="lat_orig", lon="lon_orig", 
+            hover_name="Origin", 
+            #color_continuous_scale="balance",
+            color="OriginCount",
+            hover_data = {
+                "Origin":True,
+                "OriginCount":True,
+                "lat_orig":False,
+                "lon_orig":False
+            },
+            labels={
+                'OriginCount':'# Episodes',
+                'Origin':'City'
+            },
+            size = "OriginCount",
+            zoom=3)
+            #center = {"lat": 37.0902, "lon": -95.7129})
+        
+        fig.update_layout(
+            mapbox_style="carto-positron",
+            margin={"r":0,"t":0,"l":0,"b":0}
+        )
+        return fig
+    else:
+        filtered = hhi_df[hhi_df['MoveToCountry']==dd_a]
+        #filtered = filtered[(filtered['GeoCategory']=="All")]
+        #filtered = filtered[filtered['MoveToCountry']!=dd_a]
 
-    return fig
+        city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+        city_counts.columns = ['Destination', 'DestinationCount']
+
+        new_df = filtered.merge(city_counts, on='Destination', how='inner')
+
+
+        fig = px.scatter_mapbox(
+            new_df, 
+            lat="lat_dest", lon="lon_dest", 
+            hover_name="Destination", 
+            #color_continuous_scale="balance",
+            color="DestinationCount",
+            hover_data = {
+                "Destination":True,
+                "DestinationCount":True,
+                "lat_dest":False,
+                "lon_dest":False
+            },
+            labels={
+                'DestinationCount':'# Episodes',
+                'Destination':'City'
+            },
+            size = "DestinationCount",
+            zoom=3)
+            #center = {"lat": 37.0902, "lon": -95.7129})
+        
+        fig.update_layout(
+            mapbox_style="carto-positron",
+            margin={"r":0,"t":0,"l":0,"b":0}
+        )
+
+        return fig
 
 #------------------------ TAB #3: Destinations ------------------------#
 
