@@ -145,17 +145,6 @@ app.layout = html.Div([
         children=[
             dbc.Row([
                 dbc.Col([
-                    dbc.Card(id='card0')
-                ],width=4),
-                dbc.Col([
-                    dbc.Card(id='card1')
-                ],width=4),
-                dbc.Col([
-                    dbc.Card(id='card2')
-                ],width=4),
-            ]),
-            dbc.Row([
-                dbc.Col([
                      dcc.Dropdown(
                         id='dropdown0',
                         style={'color':'black'},
@@ -384,7 +373,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_orig", lon="lon_orig", 
             hover_name="Origin", 
-            color_continuous_scale="viridis",
+            color_continuous_scale="peach",
             color="OriginCount",
             hover_data = {
                 "Origin":True,
@@ -401,9 +390,16 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             zoom=3)
         
         fig.update_layout(
-            mapbox_style="carto-positron",
-            margin={"r":0,"t":0,"l":0,"b":0}
+            mapbox_style="carto-darkmatter",
+            margin={"r":0,"t":0,"l":0,"b":0},
+            paper_bgcolor='black' 
         )
+        fig.update_coloraxes(
+            colorbar=dict(bgcolor='black'),
+            colorbar_title_font_color='white',
+            colorbar_tickfont_color='white'
+        )
+
         return fig
     else:
         filtered = hhi_df[hhi_df['MoveToCountry']==dd_a]
@@ -418,7 +414,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_dest", lon="lon_dest", 
             hover_name="Destination", 
-            color_continuous_scale="viridis",
+            color_continuous_scale="peach",
             color="DestinationCount",
             hover_data = {
                 "Destination":True,
@@ -435,9 +431,16 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             zoom=3)
         
         fig.update_layout(
-            mapbox_style="carto-positron",
-            margin={"r":0,"t":0,"l":0,"b":0}
+            mapbox_style="carto-darkmatter",
+            margin={"r":0,"t":0,"l":0,"b":0},
+            paper_bgcolor='black' 
         )
+        fig.update_coloraxes(
+            colorbar=dict(bgcolor='black'),
+            colorbar_title_font_color='white',
+            colorbar_tickfont_color='white'
+        )
+
 
         return fig
 
@@ -505,6 +508,81 @@ def plot_tree_map(dd_a, radio_select):
 
         return tree_fig
 
+#----- Tab 3: Routes
+
+#Filter origin city choices by parent dropdown (origin country)
+@app.callback(
+    Output('dropdown1', 'options'), #--> filter cities
+    Output('dropdown1', 'value'),
+    Input('dropdown0', 'value') #--> choose country
+)
+def set_city_options(selected_origin_country):
+    return [{'label': i, 'value': i} for i in country_city_dict[selected_origin_country]], country_city_dict[selected_origin_country][0]
+
+@app.callback(
+    Output('map_dest_cities','figure'),
+    Input('dropdown1','value')
+)
+def plot_map_of_routes(dd1):
+    
+    filtered = hhi_df[hhi_df['Origin']==dd1]
+    #filtered = hhi_df[hhi_df['Origin']=="San Diego, California"]
+
+
+    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+    city_counts.columns = ['Destination', 'DestinationCount']
+    new_df = filtered.merge(city_counts, on='Destination', how='inner')
+    new_df['Key'] = 'Destination'
+    orig_lat = new_df['lat_orig'][0]
+    orig_lon = new_df['lon_orig'][0]
+
+    #Add a row of the origin as destination and color it differently
+    new_row = {
+        'index': 0, 'ep_summary': 'Text','air_date': '01-Jan-99','ep_nums':0,
+        'ep_title':'Title','episode':0,'season':0,'year':0,
+        'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
+        'NumBlanks':0,'Origin':'text',
+        'Destination':dd1,
+        #'Destination':"San Diego, California",
+
+        'GeoCategory':'All','lat_orig':0,'lon_orig':0,
+        'lat_dest':orig_lat,
+        'lon_dest':orig_lon,
+        'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+        'Key':'Origin'
+    }
+    new_df = new_df.append(new_row, ignore_index = True)
+
+    #This is not working -- rethink this approach
+    new_df['lat_dest'] = new_df['lat_dest'].astype(float).astype(int)
+    new_df['lon_dest'] = new_df['lon_dest'].astype(float).astype(int)
+
+
+    fig = px.scatter_mapbox(
+        new_df, 
+        lat="lat_dest", lon="lon_dest", 
+        hover_name="Destination", 
+        color="Key",
+        hover_data = {
+            "Destination":True,
+            "lat_dest":False,
+            "lat_dest":False,
+            "lon_dest":False,
+            "Key":False
+        },
+        labels={
+            'Destination':'City'
+        },
+        size = "DestinationCount",
+        zoom=2,
+        center = {"lat": orig_lat, "lon": orig_lon})
+    
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        margin={"r":0,"t":0,"l":0,"b":0},
+        showlegend=False
+    )
+    return fig
 
 
 if __name__=='__main__':
