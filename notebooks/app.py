@@ -7,6 +7,7 @@ import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
 
 
 
@@ -521,20 +522,23 @@ def set_city_options(selected_origin_country):
 
 @app.callback(
     Output('map_dest_cities','figure'),
+    Input('dropdown0','value'),
     Input('dropdown1','value')
 )
-def plot_map_of_routes(dd1):
-    
-    filtered = hhi_df[hhi_df['Origin']==dd1]
-    #filtered = hhi_df[hhi_df['Origin']=="San Diego, California"]
+def plot_map_of_routes(dd1,dd0):
 
+    locations_list = [dd0, ', ', dd1]
+    full_loc_name = "".join(locations_list)
+    
+    filtered = hhi_df[hhi_df['Origin']==full_loc_name]
+    #filtered = hhi_df[hhi_df['Origin']=="Hanoi, Vietnam"]
 
     city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
     city_counts.columns = ['Destination', 'DestinationCount']
     new_df = filtered.merge(city_counts, on='Destination', how='inner')
     new_df['Key'] = 'Destination'
-    orig_lat = new_df['lat_orig'][0]
-    orig_lon = new_df['lon_orig'][0]
+    orig_lat = int(float(new_df['lat_orig'][0]))
+    orig_lon = int(float(new_df['lon_orig'][0]))
 
     #Add a row of the origin as destination and color it differently
     new_row = {
@@ -542,8 +546,8 @@ def plot_map_of_routes(dd1):
         'ep_title':'Title','episode':0,'season':0,'year':0,
         'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
         'NumBlanks':0,'Origin':'text',
-        'Destination':dd1,
-        #'Destination':"San Diego, California",
+        'Destination':full_loc_name,
+        #'Destination':'Hanoi, Vietnam',
 
         'GeoCategory':'All','lat_orig':0,'lon_orig':0,
         'lat_dest':orig_lat,
@@ -552,11 +556,6 @@ def plot_map_of_routes(dd1):
         'Key':'Origin'
     }
     new_df = new_df.append(new_row, ignore_index = True)
-
-    #This is not working -- rethink this approach
-    new_df['lat_dest'] = new_df['lat_dest'].astype(float).astype(int)
-    new_df['lon_dest'] = new_df['lon_dest'].astype(float).astype(int)
-
 
     fig = px.scatter_mapbox(
         new_df, 
@@ -582,6 +581,12 @@ def plot_map_of_routes(dd1):
         margin={"r":0,"t":0,"l":0,"b":0},
         showlegend=False
     )
+
+    fig.add_trace(go.Scattermapbox(
+        mode = "lines",
+        lon = new_df['lon_dest'],
+        lat = new_df['lat_dest']
+    ))
     return fig
 
 
