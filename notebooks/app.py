@@ -76,29 +76,25 @@ app.layout = html.Div([
                 ],style={'text-decoration': 'underline'}),
                 html.Div([
                     html.P("This dashboard attempts to answer several questions:"),
-                    html.P("1.) blah blah 1?"),
-                    html.P("2.) blah blah 2?"),
-                    html.P("3.) blah blah 3?")
+                    html.P("1.) Which cities/countries are people moving to?"),
+                    html.P("2.) Which cities/countries are people moving from?"),
+                    html.P("3.) How far are people travelling on average?"),
+                    html.P("4.) Is there any discernible trend with the origins or destinations?")
                 ]),
                 html.Div([
                     html.P(dcc.Markdown('''**What data is being used for this analysis?**''')),
                 ],style={'text-decoration': 'underline'}),   
                 html.Div([
-                       html.P(["Data" ,html.A(" here ",href="https://www.ahrq.gov/sdoh/data-analytics/sdoh-data.html")])
-                ]),
-                html.Div([
-                    html.P(dcc.Markdown('''**How was the data analyzed?**''')),
-                ],style={'text-decoration': 'underline'}),
-                html.Div([
-                    html.P(children=['.sadfasdf'])
+                       html.P("Data was gathered over the course of a month through two methods:"),
+                       html.P(["1.) scraped from the link " ,html.A("here",href="https://thetvdb.com/series/house-hunters-international/allseasons/official"),' and then Name-Entity-Recognition (NER) was used to pull out geographical text.']),
+                       html.P(["2.) Painstakingly recorded by watching as much HHI as I could.  I would mark down the origin and destination in an Excel file and then load the data into a Python script that analyzed the locations using the ", html.A('geopy',href='https://geopy.readthedocs.io/en/stable/')," and ", html.A('h3',href='https://pypi.org/project/h3/'),' libraries to extract the latitudes, longitudes, and distances (in km) in between origins and destinations.'])
                 ]),
                 html.Div([
                     html.P(dcc.Markdown('''**What are the limitations of this data?**''')),
                 ],style={'text-decoration': 'underline'}),
                 html.Div(
                     children=[
-                       html.P("Dsdfadsfdsf."),
-                       html.P(["asdfladskfadsf"])
+                       html.P(["Not all cities and countries were available. As much as I would love to sit down and watch every single episode of House Hunters International to fill in the gaps where the episode descriptions or episode titles were insufficient, I don't have that kind of time. The episodes with missing information were left out of the distance analyses."])
                     ]
                 )
         ]),
@@ -472,13 +468,13 @@ def plot_tree_map(dd_a, radio_select):
             path = ['country'],
             values = 'count',
             template ='plotly_dark',
-            title=f'Top 10 Destinations moving from {dd_a}',
+            title=f'Where are they moving to? (Top 10)',
             color = 'country',
             color_discrete_map = colour_map_creator(dest_countries,'country')
         )
 
         tree_fig.update_traces(
-            hovertemplate='Count=%{value}'
+            hovertemplate='# Episodes=%{value}'
         )
 
         return tree_fig
@@ -497,14 +493,14 @@ def plot_tree_map(dd_a, radio_select):
             path = ['country'],
             values = 'count',
             template = 'plotly_dark',
-            title=f'Top 10 Origins moved from to {dd_a}',
+            title=f'Where did they move from? (Top 10)',
 
             color = 'country',
             color_discrete_map = colour_map_creator(origin_countries,'country')
         )
 
         tree_fig.update_traces(
-            hovertemplate='Count=%{value}'
+            hovertemplate='# Episodes=%{value}'
         )
 
         return tree_fig
@@ -528,65 +524,134 @@ def set_city_options(selected_origin_country):
 def plot_map_of_routes(dd1,dd0):
 
     locations_list = [dd0, ', ', dd1]
-    full_loc_name = "".join(locations_list)
-    
-    filtered = hhi_df[hhi_df['Origin']==full_loc_name]
-    #filtered = hhi_df[hhi_df['Origin']=="Hanoi, Vietnam"]
+    print(locations_list)
 
-    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
-    city_counts.columns = ['Destination', 'DestinationCount']
-    new_df = filtered.merge(city_counts, on='Destination', how='inner')
-    new_df['Key'] = 'Destination'
-    orig_lat = int(float(new_df['lat_orig'][0]))
-    orig_lon = int(float(new_df['lon_orig'][0]))
+    if 'United States' in locations_list:
 
-    #Add a row of the origin as destination and color it differently
-    new_row = {
-        'index': 0, 'ep_summary': 'Text','air_date': '01-Jan-99','ep_nums':0,
-        'ep_title':'Title','episode':0,'season':0,'year':0,
-        'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
-        'NumBlanks':0,'Origin':'text',
-        'Destination':full_loc_name,
-        #'Destination':'Hanoi, Vietnam',
+        full_loc_name = dd0
 
-        'GeoCategory':'All','lat_orig':0,'lon_orig':0,
-        'lat_dest':orig_lat,
-        'lon_dest':orig_lon,
-        'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
-        'Key':'Origin'
-    }
-    new_df = new_df.append(new_row, ignore_index = True)
+        filtered = hhi_df[hhi_df['Origin']==full_loc_name]
+        #filtered = hhi_df[hhi_df['Origin']=="Hanoi, Vietnam"]
 
-    fig = px.scatter_mapbox(
-        new_df, 
-        lat="lat_dest", lon="lon_dest", 
-        hover_name="Destination", 
-        color="Key",
-        hover_data = {
-            "Destination":True,
-            "lat_dest":False,
-            "lat_dest":False,
-            "lon_dest":False,
-            "Key":False
-        },
-        labels={
-            'Destination':'City'
-        },
-        size = "DestinationCount",
-        zoom=2,
-        center = {"lat": orig_lat, "lon": orig_lon})
-    
-    fig.update_layout(
-        mapbox_style="carto-positron",
-        margin={"r":0,"t":0,"l":0,"b":0},
-        showlegend=False
-    )
 
-    fig.add_trace(go.Scattermapbox(
-        mode = "lines",
-        lon = new_df['lon_dest'],
-        lat = new_df['lat_dest']
-    ))
+        city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+        city_counts.columns = ['Destination', 'DestinationCount']
+        new_df = filtered.merge(city_counts, on='Destination', how='inner')
+        new_df['Key'] = 'Destination'
+        orig_lat = float(new_df['lat_orig'][0])
+        orig_lon = float(new_df['lon_orig'][0])
+
+        #Add a row of the origin as destination and color it differently
+        new_row = {
+            'index': 0, 'ep_summary': 'Text','air_date': '01-Jan-99','ep_nums':0,
+            'ep_title':'Title','episode':0,'season':0,'year':0,
+            'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
+            'NumBlanks':0,'Origin':'text',
+            'Destination':full_loc_name,
+            'GeoCategory':'All','lat_orig':0,'lon_orig':0,
+            'lat_dest':orig_lat,
+            'lon_dest':orig_lon,
+            'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+            'Key':'Origin'
+        }
+        new_df = new_df.append(new_row, ignore_index = True)
+
+        fig = px.scatter_mapbox(
+            new_df, 
+            lat="lat_dest", lon="lon_dest", 
+            hover_name="Destination", 
+            color="Key",
+            hover_data = {
+                "Destination":True,
+                "lat_dest":False,
+                "lat_dest":False,
+                "lon_dest":False,
+                "Key":False
+            },
+            labels={
+                'Destination':'City'
+            },
+            size = "DestinationCount",
+            zoom=2,
+            center = {"lat": orig_lat, "lon": orig_lon})
+        
+        fig.update_layout(
+            mapbox_style="carto-positron",
+            margin={"r":0,"t":0,"l":0,"b":0},
+            showlegend=False
+        )
+
+        for lon,lat in zip(new_df['lon_dest'][1:-1],new_df['lat_dest'][1:-1]):
+                fig.add_trace(
+                    go.Scattermapbox(
+                        mode="lines", 
+                        lon=[new_df['lon_dest'].iloc[-1],lon], 
+                        lat=[new_df['lat_dest'].iloc[-1],lat]
+                    )
+                )
+
+    else:
+        full_loc_name = "".join(locations_list)
+
+        filtered = hhi_df[hhi_df['Origin']==full_loc_name]
+
+
+        city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+        city_counts.columns = ['Destination', 'DestinationCount']
+        new_df = filtered.merge(city_counts, on='Destination', how='inner')
+        new_df['Key'] = 'Destination'
+        orig_lat = float(new_df['lat_orig'][0])
+        orig_lon = float(new_df['lon_orig'][0])
+
+        #Add a row of the origin as destination and color it differently
+        new_row = {
+            'index': 0, 'ep_summary': 'Text','air_date': '01-Jan-99','ep_nums':0,
+            'ep_title':'Title','episode':0,'season':0,'year':0,
+            'MoveFromCity':'text','MoveFromCountry':'text','MoveToCity':'text','MoveToCountry':'text',
+            'NumBlanks':0,'Origin':'text',
+            'Destination':full_loc_name,
+            'GeoCategory':'All','lat_orig':0,'lon_orig':0,
+            'lat_dest':orig_lat,
+            'lon_dest':orig_lon,
+            'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+            'Key':'Origin'
+        }
+        new_df = new_df.append(new_row, ignore_index = True)
+
+        fig = px.scatter_mapbox(
+            new_df, 
+            lat="lat_dest", lon="lon_dest", 
+            hover_name="Destination", 
+            color="Key",
+            hover_data = {
+                "Destination":True,
+                "lat_dest":False,
+                "lat_dest":False,
+                "lon_dest":False,
+                "Key":False
+            },
+            labels={
+                'Destination':'City'
+            },
+            size = "DestinationCount",
+            zoom=2,
+            center = {"lat": orig_lat, "lon": orig_lon})
+        
+        fig.update_layout(
+            mapbox_style="carto-positron",
+            margin={"r":0,"t":0,"l":0,"b":0},
+            showlegend=False
+        )
+
+        for lon,lat in zip(new_df['lon_dest'][1:-1],new_df['lat_dest'][1:-1]):
+                fig.add_trace(
+                    go.Scattermapbox(
+                        mode="lines", 
+                        lon=[new_df['lon_dest'].iloc[-1],lon], 
+                        lat=[new_df['lat_dest'].iloc[-1],lat]
+                    )
+                )
+
     return fig
 
 
