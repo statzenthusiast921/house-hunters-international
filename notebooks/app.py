@@ -1,12 +1,11 @@
 #Import packages
 import pandas as pd
-import numpy as np
 import os
 import plotly.express as px
 import dash
-from dash import dcc, html
+from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 
 
@@ -98,7 +97,7 @@ app.layout = html.Div([
                     ]
                 )
         ]),
-        dcc.Tab(label='Origins/Destinations',value='tab-2',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Countries',value='tab-2',style=tab_style, selected_style=tab_selected_style,
         children = [
             dbc.Row([
                 dbc.Col([
@@ -125,7 +124,7 @@ app.layout = html.Div([
                         id='dropdown_a',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_country_choices],
-                        value='United States'
+                        value= 'Australia'
                 )
             ]),
             dbc.Row([
@@ -138,7 +137,7 @@ app.layout = html.Div([
 
             ])
         ]),
-        dcc.Tab(label='Routes',value='tab-3',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Cities',value='tab-3',style=tab_style, selected_style=tab_selected_style,
         children=[
             dbc.Row([
                 dbc.Col([
@@ -146,19 +145,22 @@ app.layout = html.Div([
                         id='dropdown0',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_country_choices],
-                        value=origin_country_choices[0]
+                        #value=origin_country_choices[0]
                     ),
                     dcc.Dropdown(
                         id='dropdown1',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_city_choices],
-                        value=origin_city_choices[0]
+                        #value=origin_city_choices[0]
                     ),
                 ],width=12)
             ]),
             dbc.Row([
                 dbc.Col([
                     dcc.Graph(id='map_dest_cities')
+                ], width = 6),
+                dbc.Col([
+                    html.Div(id='routes_table')
                 ], width = 6)
             ])
         ])
@@ -226,12 +228,6 @@ def info_about_origins(dd_a, radio_select):
         #Metric 2 --> avg distance travelling away
         remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
         metric2 = round(remove0s['distance_km'].mean(),2)
-
-
-        #use this for another plot
-        # visit_country_counts = pd.DataFrame(filtered.groupby('MoveToCountry').size()).reset_index()
-        # visit_country_counts.columns = ['MoveToCountry', 'Count']
-        # most_pop_country = visit_country_counts.sort_values('Count', ascending=False).head(1)['MoveToCountry'].values[0]
 
         #Metric 3 --> max distance
         country_ref = filtered['distance_km'].max()
@@ -524,14 +520,13 @@ def set_city_options(selected_origin_country):
 def plot_map_of_routes(dd1,dd0):
 
     locations_list = [dd0, ', ', dd1]
-    print(locations_list)
 
     if 'United States' in locations_list:
 
         full_loc_name = dd0
+        #full_loc_name = 'Bangkok, Thailand'
 
         filtered = hhi_df[hhi_df['Origin']==full_loc_name]
-        #filtered = hhi_df[hhi_df['Origin']=="Hanoi, Vietnam"]
 
 
         city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
@@ -581,14 +576,16 @@ def plot_map_of_routes(dd1,dd0):
             showlegend=False
         )
 
-        for lon,lat in zip(new_df['lon_dest'][1:-1],new_df['lat_dest'][1:-1]):
+        for lon,lat in zip(new_df['lon_dest'][0:-1],new_df['lat_dest'][0:-1]):
                 fig.add_trace(
                     go.Scattermapbox(
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
-                        lat=[new_df['lat_dest'].iloc[-1],lat]
+                        lat=[new_df['lat_dest'].iloc[-1],lat],
+                        line_color = 'green'
                     )
                 )
+        return fig
 
     else:
         full_loc_name = "".join(locations_list)
@@ -643,17 +640,50 @@ def plot_map_of_routes(dd1,dd0):
             showlegend=False
         )
 
-        for lon,lat in zip(new_df['lon_dest'][1:-1],new_df['lat_dest'][1:-1]):
+        for lon,lat in zip(new_df['lon_dest'][0:-1],new_df['lat_dest'][0:-1]):
                 fig.add_trace(
                     go.Scattermapbox(
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
-                        lat=[new_df['lat_dest'].iloc[-1],lat]
+                        lat=[new_df['lat_dest'].iloc[-1],lat],
+                        line_color = 'green'
+
                     )
                 )
 
-    return fig
+        return fig
+
+@app.callback(
+    Output('routes_table','children'),
+    Input('dropdown0','value'),
+    Input('dropdown1','value')
+)
+def table(dd1,dd0):
+
+    locations_list = [dd0, ', ', dd1]
+    full_loc_name = "".join(locations_list)
+    #full_loc_name = 'Hanoi, Vietnam'
+
+    filtered = hhi_df[hhi_df['Origin']==full_loc_name]
 
 
+    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+    city_counts.columns = ['Destination', 'DestinationCount']
+    new_df = filtered.merge(city_counts, on='Destination', how='inner')
+    new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+
+    return html.Div([
+        dash_table.DataTable(
+            columns=[{"name": i, "id": i} for i in new_df.columns],
+            style_data_conditional=[{
+                'if': {'row_index': 'odd'},'backgroundColor': 'rgb(248, 248, 248)'}],
+            style_header={'backgroundColor': 'rgb(230, 230, 230)','fontWeight': 'bold'},
+            filter_action='native',
+            style_data={'width': '150px', 'minWidth': '150px', 'maxWidth': '150px','overflow': 'hidden','textOverflow': 'ellipsis'},
+            sort_action='native',sort_mode="multi",
+            page_action="native", page_current= 0,page_size= 20,                     
+            data=new_df.to_dict('records')
+        )
+    ])
 if __name__=='__main__':
 	app.run_server()
