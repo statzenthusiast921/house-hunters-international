@@ -18,6 +18,8 @@ hhi_df = hhi_df[
     (~hhi_df['Origin'].str.contains(', United States',na=False))
 ]
 
+hhi_df['distance_mi'] = hhi_df['distance_km'] * 0.621371
+
 country_counts = pd.DataFrame(hhi_df.groupby('MoveFromCountry').size()).reset_index()
 country_counts.columns = ['MoveFromCountry', 'num_eps_to_filter']
 
@@ -117,13 +119,20 @@ app.layout = html.Div([
                         ],
                         value='Origins',
                         labelStyle={'display': 'inline-block','text-align': 'left'}
-                ),
-                dcc.Dropdown(
-                        id='dropdown_a',
-                        style={'color':'black'},
-                        options=[{'label': i, 'value': i} for i in origin_country_choices],
-                        value= 'Australia'
                 )
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label('Choose a country:')
+                ],width = 2),
+                dbc.Col([
+                    dcc.Dropdown(
+                            id='dropdown_a',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in origin_country_choices],
+                            value= 'Australia'
+                    )
+                ], width =10)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -139,19 +148,29 @@ app.layout = html.Div([
         children=[
             dbc.Row([
                 dbc.Col([
+                    dbc.Label('Choose a country: ')
+                ],width = 2),
+                dbc.Col([
                      dcc.Dropdown(
                         id='dropdown0',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_country_choices],
                         #value=origin_country_choices[0]
                     ),
+                ],width=10)
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label('Choose a city: ')
+                ],width = 2),
+                dbc.Col([
                     dcc.Dropdown(
                         id='dropdown1',
                         style={'color':'black'},
                         options=[{'label': i, 'value': i} for i in origin_city_choices],
                         #value=origin_city_choices[0]
                     ),
-                ],width=12)
+                ],width=10)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -233,11 +252,11 @@ def info_about_origins(dd_a, radio_select):
 
         #Metric 2 --> avg distance travelling away
         remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
-        metric2 = round(remove0s['distance_km'].mean(),2)
+        metric2 = int(remove0s['distance_km'].median())
 
         #Metric 3 --> max distance
         country_ref = filtered['distance_km'].max()
-        metric3 = round(filtered['distance_km'].max(),2)
+        metric3 = int(filtered['distance_km'].max())
         max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
 
 
@@ -258,7 +277,7 @@ def info_about_origins(dd_a, radio_select):
 
         card_b = dbc.Card([
             dbc.CardBody([
-                html.P(f'Average distance to travel'),
+                html.P(f'Median distance to travel'),
                 html.H5(f"{metric2} km")
             ])
         ],
@@ -296,11 +315,11 @@ def info_about_origins(dd_a, radio_select):
 
         #Metric 2 --> avg distance travelling away
         remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
-        metric2 = round(remove0s['distance_km'].mean(),2)
+        metric2 = int(remove0s['distance_km'].median())
 
         #Metric 3 --> max distance
         country_ref = filtered['distance_km'].max()
-        metric3 = round(filtered['distance_km'].max(),2)
+        metric3 = int(filtered['distance_km'].max())
         max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveFromCountry'].values[0]
 
         card_a = dbc.Card([
@@ -320,7 +339,7 @@ def info_about_origins(dd_a, radio_select):
 
         card_b = dbc.Card([
             dbc.CardBody([
-                html.P(f'Average distance to travel'),
+                html.P(f'Median distance to travel'),
                 html.H5(f"{metric2} km")
             ])
         ],
@@ -372,7 +391,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_orig", lon="lon_orig", 
             hover_name="Origin", 
-            color_continuous_scale="ylorrd",
+            color_continuous_scale="viridis",
             color="OriginCount",
             hover_data = {
                 "Origin":True,
@@ -389,7 +408,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             zoom=3)
         
         fig.update_layout(
-            mapbox_style="carto-darkmatter",
+            mapbox_style="carto-positron",
             margin={"r":0,"t":0,"l":0,"b":0},
             paper_bgcolor='black' 
         )
@@ -413,7 +432,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_dest", lon="lon_dest", 
             hover_name="Destination", 
-            color_continuous_scale="ylorrd",
+            color_continuous_scale="viridis",
             color="DestinationCount",
             hover_data = {
                 "Destination":True,
@@ -430,7 +449,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             zoom=3)
         
         fig.update_layout(
-            mapbox_style="carto-darkmatter",
+            mapbox_style="carto-positron",
             margin={"r":0,"t":0,"l":0,"b":0},
             paper_bgcolor='black' 
         )
@@ -536,7 +555,7 @@ def plot_map_of_routes(dd1,dd0):
         city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
         city_counts.columns = ['Destination', 'DestinationCount']
         new_df = filtered.merge(city_counts, on='Destination', how='inner')
-        new_df['Key'] = 'Destination'
+        new_df['Legend'] = 'Destination'
         orig_lat = float(new_df['lat_orig'][0])
         orig_lon = float(new_df['lon_orig'][0])
 
@@ -551,7 +570,7 @@ def plot_map_of_routes(dd1,dd0):
             'lat_dest':orig_lat,
             'lon_dest':orig_lon,
             'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
-            'Key':'Origin'
+            'Legend':'Origin'
         }
         new_df = new_df.append(new_row, ignore_index = True)
 
@@ -559,27 +578,27 @@ def plot_map_of_routes(dd1,dd0):
             new_df, 
             lat="lat_dest", lon="lon_dest", 
             hover_name="Destination", 
-            color="Key",
+            color="Legend",
             hover_data = {
                 "Destination":True,
                 "lat_dest":False,
                 "lat_dest":False,
                 "lon_dest":False,
-                "Key":False
+                "Legend":False
             },
             labels={
                 'Destination':'City'
             },
             size = "DestinationCount",
-            zoom=2,
+            zoom=3,
             center = {"lat": orig_lat, "lon": orig_lon})
         
         fig.update_layout(
-            mapbox_style="carto-darkmatter",
+            mapbox_style="carto-positron",
             margin={"r":0,"t":0,"l":0,"b":0},
             showlegend=True,
-            paper_bgcolor='black' ,
-            font_color="white",
+            paper_bgcolor='white' ,
+            font_color="black",
             legend=dict(
                 yanchor="top",
                 y=0.99,
@@ -596,7 +615,7 @@ def plot_map_of_routes(dd1,dd0):
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
                         lat=[new_df['lat_dest'].iloc[-1],lat],
-                        line_color = 'yellow',
+                        line_color = 'black',
                         showlegend = False
                     )
                 )
@@ -611,7 +630,7 @@ def plot_map_of_routes(dd1,dd0):
         city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
         city_counts.columns = ['Destination', 'DestinationCount']
         new_df = filtered.merge(city_counts, on='Destination', how='inner')
-        new_df['Key'] = 'Destination'
+        new_df['Legend'] = 'Destination'
         orig_lat = float(new_df['lat_orig'][0])
         orig_lon = float(new_df['lon_orig'][0])
 
@@ -626,7 +645,7 @@ def plot_map_of_routes(dd1,dd0):
             'lat_dest':orig_lat,
             'lon_dest':orig_lon,
             'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
-            'Key':'Origin'
+            'Legend':'Origin'
         }
         new_df = new_df.append(new_row, ignore_index = True)
 
@@ -634,27 +653,27 @@ def plot_map_of_routes(dd1,dd0):
             new_df, 
             lat="lat_dest", lon="lon_dest", 
             hover_name="Destination", 
-            color="Key",
+            color="Legend",
             hover_data = {
                 "Destination":True,
                 "lat_dest":False,
                 "lat_dest":False,
                 "lon_dest":False,
-                "Key":False
+                "Legend":False
             },
             labels={
                 'Destination':'City'
             },
             size = "DestinationCount",
-            zoom=2,
+            zoom=3,
             center = {"lat": orig_lat, "lon": orig_lon})
         
         fig.update_layout(
-            mapbox_style="carto-darkmatter",
+            mapbox_style="carto-positron",
             margin={"r":0,"t":0,"l":0,"b":0},
             showlegend=True,
             paper_bgcolor='black',
-            font_color="white",
+            font_color="black",
             legend=dict(
                 yanchor="top",
                 y=0.99,
@@ -670,7 +689,7 @@ def plot_map_of_routes(dd1,dd0):
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
                         lat=[new_df['lat_dest'].iloc[-1],lat],
-                        line_color = 'yellow',
+                        line_color = 'black',
                         showlegend = False
 
                     )
