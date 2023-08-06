@@ -18,8 +18,6 @@ hhi_df = hhi_df[
     (~hhi_df['Origin'].str.contains(', United States',na=False))
 ]
 
-#hhi_df = pd.read_csv('/Users/jonzimmerman/Desktop/Data Projects/House Hunters International/data/data_w_lat_lon_v2.csv',encoding='latin-1')
-
 country_counts = pd.DataFrame(hhi_df.groupby('MoveFromCountry').size()).reset_index()
 country_counts.columns = ['MoveFromCountry', 'num_eps_to_filter']
 
@@ -163,7 +161,11 @@ app.layout = html.Div([
                     html.Div(id='routes_table')
                 ], width = 6)
             ])
-        ])
+        ]),
+        dcc.Tab(label='Trends',value='tab-4',style=tab_style, selected_style=tab_selected_style,
+            children = []
+        )
+
      
     ])
 ])
@@ -184,6 +186,10 @@ def render_content(tab):
     elif tab == 'tab-3':
         return html.Div([
             html.H3('Tab content 3')
+        ])
+    elif tab == 'tab-4':
+        return html.Div([
+            html.H3('Tab content 4')
         ])
 
     
@@ -366,7 +372,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_orig", lon="lon_orig", 
             hover_name="Origin", 
-            color_continuous_scale="peach",
+            color_continuous_scale="ylorrd",
             color="OriginCount",
             hover_data = {
                 "Origin":True,
@@ -407,7 +413,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             new_df, 
             lat="lat_dest", lon="lon_dest", 
             hover_name="Destination", 
-            color_continuous_scale="peach",
+            color_continuous_scale="ylorrd",
             color="DestinationCount",
             hover_data = {
                 "Destination":True,
@@ -524,8 +530,6 @@ def plot_map_of_routes(dd1,dd0):
     if 'United States' in locations_list:
 
         full_loc_name = dd0
-        #full_loc_name = 'Bangkok, Thailand'
-
         filtered = hhi_df[hhi_df['Origin']==full_loc_name]
 
 
@@ -571,9 +575,19 @@ def plot_map_of_routes(dd1,dd0):
             center = {"lat": orig_lat, "lon": orig_lon})
         
         fig.update_layout(
-            mapbox_style="carto-positron",
+            mapbox_style="carto-darkmatter",
             margin={"r":0,"t":0,"l":0,"b":0},
-            showlegend=False
+            showlegend=True,
+            paper_bgcolor='black' ,
+            font_color="white",
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="right",
+                x=0.99,
+                bgcolor='rgba(0,0,0,0)'
+
+            )
         )
 
         for lon,lat in zip(new_df['lon_dest'][0:-1],new_df['lat_dest'][0:-1]):
@@ -582,7 +596,8 @@ def plot_map_of_routes(dd1,dd0):
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
                         lat=[new_df['lat_dest'].iloc[-1],lat],
-                        line_color = 'green'
+                        line_color = 'yellow',
+                        showlegend = False
                     )
                 )
         return fig
@@ -635,9 +650,18 @@ def plot_map_of_routes(dd1,dd0):
             center = {"lat": orig_lat, "lon": orig_lon})
         
         fig.update_layout(
-            mapbox_style="carto-positron",
+            mapbox_style="carto-darkmatter",
             margin={"r":0,"t":0,"l":0,"b":0},
-            showlegend=False
+            showlegend=True,
+            paper_bgcolor='black',
+            font_color="white",
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="right",
+                x=0.99,
+                bgcolor='rgba(0,0,0,0)'
+            )
         )
 
         for lon,lat in zip(new_df['lon_dest'][0:-1],new_df['lat_dest'][0:-1]):
@@ -646,7 +670,8 @@ def plot_map_of_routes(dd1,dd0):
                         mode="lines", 
                         lon=[new_df['lon_dest'].iloc[-1],lon], 
                         lat=[new_df['lat_dest'].iloc[-1],lat],
-                        line_color = 'green'
+                        line_color = 'yellow',
+                        showlegend = False
 
                     )
                 )
@@ -659,31 +684,71 @@ def plot_map_of_routes(dd1,dd0):
     Input('dropdown1','value')
 )
 def table(dd1,dd0):
-
     locations_list = [dd0, ', ', dd1]
-    full_loc_name = "".join(locations_list)
-    #full_loc_name = 'Hanoi, Vietnam'
 
-    filtered = hhi_df[hhi_df['Origin']==full_loc_name]
+    if 'United States' in locations_list:
+    
+        full_loc_name = dd0
+        #full_loc_name = 'San Diego, California'
+        filtered = hhi_df[hhi_df['Origin']==full_loc_name]
 
 
-    city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
-    city_counts.columns = ['Destination', 'DestinationCount']
-    new_df = filtered.merge(city_counts, on='Destination', how='inner')
-    new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+        city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+        city_counts.columns = ['Destination', 'DestinationCount']
+        new_df = filtered.merge(city_counts, on='Destination', how='inner')
+        new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+        new_df = new_df.rename(columns={
+                new_df.columns[2]: "# Episodes" ,
+                new_df.columns[3]: "Distance" 
+            })
+        new_df['Distance'] = round(new_df['Distance'],1)
+        new_df = new_df.drop_duplicates()
+        new_df = new_df.sort_values(['# Episodes', 'Distance'], ascending=[False, False])
 
-    return html.Div([
-        dash_table.DataTable(
-            columns=[{"name": i, "id": i} for i in new_df.columns],
-            style_data_conditional=[{
-                'if': {'row_index': 'odd'},'backgroundColor': 'rgb(248, 248, 248)'}],
-            style_header={'backgroundColor': 'rgb(230, 230, 230)','fontWeight': 'bold'},
-            filter_action='native',
-            style_data={'width': '150px', 'minWidth': '150px', 'maxWidth': '150px','overflow': 'hidden','textOverflow': 'ellipsis'},
-            sort_action='native',sort_mode="multi",
-            page_action="native", page_current= 0,page_size= 20,                     
-            data=new_df.to_dict('records')
-        )
-    ])
+
+        return html.Div([
+            dash_table.DataTable(
+                columns=[{"name": i, "id": i} for i in new_df.columns],
+                style_data_conditional=[{
+                    'if': {'row_index': 'odd'},'backgroundColor': 'rgb(248, 248, 248)'}],
+                style_header={'backgroundColor': 'rgb(230, 230, 230)','fontWeight': 'bold'},
+                #filter_action='native',
+                style_data={'width': '125px', 'minWidth': '125px', 'maxWidth': '125px','overflow': 'hidden','textOverflow': 'ellipsis'},
+                sort_action='native',sort_mode="multi",
+                page_action="native", page_current= 0,page_size= 14,                     
+                data=new_df.to_dict('records')
+            )
+        ])
+    else:
+        full_loc_name = "".join(locations_list)
+
+        filtered = hhi_df[hhi_df['Origin']==full_loc_name]
+
+        city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
+        city_counts.columns = ['Destination', 'DestinationCount']
+        new_df = filtered.merge(city_counts, on='Destination', how='inner')
+        new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+        new_df = new_df.rename(columns={
+                new_df.columns[2]: "# Episodes" ,
+                new_df.columns[3]: "Distance" 
+            })
+        new_df['Distance'] = round(new_df['Distance'],1)
+
+        new_df = new_df.drop_duplicates()
+        new_df = new_df.sort_values(['# Episodes', 'Distance'], ascending=[False, False])
+
+        return html.Div([
+            dash_table.DataTable(
+                columns=[{"name": i, "id": i} for i in new_df.columns],
+                style_data_conditional=[{
+                    'if': {'row_index': 'odd'},'backgroundColor': 'rgb(248, 248, 248)'}],
+                style_header={'backgroundColor': 'rgb(230, 230, 230)','fontWeight': 'bold'},
+                filter_action='native',
+                style_data={'width': '125px', 'minWidth': '125px', 'maxWidth': '125px','overflow': 'hidden','textOverflow': 'ellipsis'},
+                sort_action='native',sort_mode="multi",
+                page_action="native", page_current= 0,page_size= 14,                     
+                data=new_df.to_dict('records')
+            )
+        ])
 if __name__=='__main__':
 	app.run_server()
