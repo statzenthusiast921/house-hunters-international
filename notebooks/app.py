@@ -29,6 +29,7 @@ hhi_df['lon_orig'] = pd.to_numeric(hhi_df['lon_orig'],errors='coerce')
 origin_city_choices = hhi_df['MoveFromCity'].unique()
 origin_country_choices = sorted(hhi_df['MoveFromCountry'].unique())
 destination_country_choices = sorted(hhi_df['MoveToCountry'].unique())
+year_choices = hhi_df['year'].unique()
 
 # Country --> City Dictionary
 df_for_dict = hhi_df[['MoveFromCountry','MoveFromCity']]
@@ -182,7 +183,32 @@ app.layout = html.Div([
             ])
         ]),
         dcc.Tab(label='Trends',value='tab-4',style=tab_style, selected_style=tab_selected_style,
-            children = []
+            children = [
+                 dbc.Row([
+                    dbc.Col([
+                        dcc.RangeSlider(
+                                    id='range_slider',
+                                    min=year_choices.min(),
+                                    max=year_choices.max(),
+                                    step=1,
+                                    value=[2012, 2015],
+                                    allowCross=False,
+                                    pushable=1,
+                                    tooltip={"placement": "bottom", "always_visible": True},
+                                    marks={
+                                        2006: '2006',
+                                        2009: '2009',
+                                        2012: '2012',
+                                        2015: '2015',
+                                        2018: '2018',
+                                        2021: '2021',
+                                        2023: '2023'
+                                    }
+                                ),
+
+                    ],width = 12)
+            ]),
+            ]
         )
 
      
