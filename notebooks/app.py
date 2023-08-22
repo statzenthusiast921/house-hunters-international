@@ -139,7 +139,7 @@ app.layout = html.Div([
                     dcc.Graph(id='map_origin_dest_cities')
                 ],width=6),
                 dbc.Col([
-                    dcc.Graph(id='tree_map_countries')
+                    dcc.Graph(id='bar_chart_countries')
                 ],width=6),
 
             ])
@@ -462,69 +462,51 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
 
         return fig
 
-#Plot Treemap of origins and destination countries
+#Bar chart of origins and destination countries
 @app.callback(
-    Output('tree_map_countries','figure'),
+    Output('bar_chart_countries','figure'),
     Input('dropdown_a','value'),
     Input('radio1','value')
 )
-def plot_tree_map(dd_a, radio_select):
-
-    def colour_map_creator(df, col):
-        colour_map = {}
-        for i in range(len(df[col])):
-            colour_map[df[col][i]] = px.colors.qualitative.Plotly[i]
-        return colour_map
+def plot_bar_chart(dd_a, radio_select):
 
     if 'Origins' in radio_select:
         filtered = hhi_df[hhi_df['MoveFromCountry']==dd_a]
         dest_countries = pd.DataFrame(filtered['MoveToCountry'].value_counts()).reset_index().head(10)
         dest_countries = dest_countries.rename(columns={
-            dest_countries.columns[0]: "country" ,
-            dest_countries.columns[1]: "count" 
+            dest_countries.columns[0]: "Country" ,
+            dest_countries.columns[1]: "# Episodes" 
         })
     
-        tree_fig = px.treemap(
-            dest_countries, 
-            path = ['country'],
-            values = 'count',
-            template ='plotly_dark',
-            title=f'Where are they moving to? (Top 10)',
-            color = 'country',
-            color_discrete_map = colour_map_creator(dest_countries,'country')
+        bar_chart = px.bar(
+            dest_countries,
+            x='Country', 
+            y='# Episodes',
+            template = 'plotly_dark',
+            title= 'Where are they moving to? (Top 10)'
+
         )
 
-        tree_fig.update_traces(
-            hovertemplate='# Episodes=%{value}'
-        )
-
-        return tree_fig
+        return bar_chart
 
     else:
         filtered = hhi_df[hhi_df['MoveToCountry']==dd_a]
         origin_countries = pd.DataFrame(filtered['MoveFromCountry'].value_counts()).reset_index().head(10)
         origin_countries = origin_countries.rename(columns={
-            origin_countries.columns[0]: "country" ,
-            origin_countries.columns[1]: "count" 
+            origin_countries.columns[0]: "Country" ,
+            origin_countries.columns[1]: "# Episodes" 
         })
      
-    
-        tree_fig = px.treemap(
-            origin_countries, 
-            path = ['country'],
-            values = 'count',
+        bar_chart = px.bar(
+            origin_countries,
+            x='Country', 
+            y='# Episodes',
             template = 'plotly_dark',
-            title=f'Where did they move from? (Top 10)',
+            title= 'Where are they moving from? (Top 10)'
 
-            color = 'country',
-            color_discrete_map = colour_map_creator(origin_countries,'country')
         )
 
-        tree_fig.update_traces(
-            hovertemplate='# Episodes=%{value}'
-        )
-
-        return tree_fig
+        return bar_chart
 
 #----- Tab 3: Routes
 
@@ -762,7 +744,7 @@ def table(dd1,dd0):
                 style_data_conditional=[{
                     'if': {'row_index': 'odd'},'backgroundColor': 'rgb(248, 248, 248)'}],
                 style_header={'backgroundColor': 'rgb(230, 230, 230)','fontWeight': 'bold'},
-                filter_action='native',
+                #filter_action='native',
                 style_data={'width': '125px', 'minWidth': '125px', 'maxWidth': '125px','overflow': 'hidden','textOverflow': 'ellipsis'},
                 sort_action='native',sort_mode="multi",
                 page_action="native", page_current= 0,page_size= 14,                     
