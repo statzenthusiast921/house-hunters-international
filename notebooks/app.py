@@ -37,6 +37,87 @@ df_for_dict = df_for_dict.drop_duplicates(subset='MoveFromCity',keep='first')
 country_city_dict = df_for_dict.groupby('MoveFromCountry')['MoveFromCity'].apply(list).to_dict()
 #country_city_dict_sorted = {l: sorted(m) for l, m in country_city_dict.items()}
 
+geo_world = pd.read_json('https://raw.githubusercontent.com/statzenthusiast921/COVID19_Project/main/custom.geo.json')
+ 
+# country_conversion_dict = {
+#     'Dominican Rep.': "Dominican Republic", 
+#     'United States': 'United States of America', 
+#     'Bolivia': 'Bolivia (Plurinational State of)', 
+#     'Falkland Is.': 'Falkland Islands (Malvinas)', 
+#     'Venezuela': 'Venezuela (Bolivarian Republic of)', 
+#     'N. Cyprus': 'Cyprus', 
+#     'Brunei': 'Brunei Darussalam', 
+#     'Iran': 'Iran (Islamic Republic of)', 
+#     'Korea': 'Republic of Korea', 
+#     'Palestine': 'occupied Palestinian territory, including east Jerusalem', 
+#     'Lao PDR': "Lao People's Democratic Republic", 
+#     #'Taiwan', 
+#     'Vietnam': 'Viet Nam', 
+#     'Dem. Rep. Korea': "Democratic People's Republic of Korea", 
+#     'Syria': 'Syrian Arab Republic', 
+#     "Côte d'Ivoire": 'Côte d’Ivoire', 
+#     'Central African Rep.': 'Central African Republic', 
+#     'Dem. Rep. Congo': 'Democratic Republic of the Congo', 
+#     'Eq. Guinea': 'Equatorial Guinea', 
+#     #'W. Sahara', 
+#     'S. Sudan': 'South Sudan', 
+#     #'Somaliland', 
+#     #'Swaziland', 
+#     'Tanzania': 'United Republic of Tanzania', 
+#     'Czech Rep.': 'Czechia', 
+#     'United Kingdom': 'The United Kingdom', 
+#     'Bosnia and Herz.': 'Bosnia and Herzegovina', 
+#     'Kosovo': 'Kosovo[1]', 
+#     'Russia': 'Russian Federation', 
+#     'Moldova': 'Republic of Moldova', 
+#     'Macedonia': 'North Macedonia', 
+#     'Solomon Is.': 'Solomon Islands'
+    
+# }
+
+#Instanciating necessary lists
+found = []
+missing = []
+countries_geo = []
+
+#For simpler access, setting "zone" as index in temporary dataframe
+tmp = hhi_df.set_index('MoveToCountry')
+
+#Looping over custom GeoJSON file
+for country in geo_world['features']:
+    
+    #Country name detection
+    country_name = country['properties']['name']
+    
+    #Eventual replacement with our transition dictionary
+    #country_name = country_conversion_dict[country_name] if country_name in country_conversion_dict.keys() else country_name
+    go_on = country_name in tmp.index
+    
+    
+    #If country is in original dataset or transition dictionary
+    if go_on:
+        
+        #Adding country to our "Matched/Found" countries list
+        found.append(country_name)
+        
+        #Getting information from both GeoJSON file and dataframe
+        geometry = country['geometry']
+        
+        #Adding 'id' information for further match between map and data
+        countries_geo.append({
+            'type':'Feature',
+            'geometry': geometry,
+            'id':country_name
+        })
+        
+    #Else, adding the country to the missing countries list
+    else:
+        missing.append(country_name)
+ 
+ #Displaying metrics
+print(f'Countries found: {len(found)}')
+print(f'Countries not found: {len(missing)}')
+geo_world_ok = {'type':'FeatureCollection','features':countries_geo}
 
 
 tabs_styles = {
@@ -184,30 +265,57 @@ app.layout = html.Div([
         ]),
         dcc.Tab(label='Trends',value='tab-4',style=tab_style, selected_style=tab_selected_style,
             children = [
-                 dbc.Row([
+                dbc.Row([
                     dbc.Col([
                         dcc.RangeSlider(
-                                    id='range_slider',
-                                    min=year_choices.min(),
-                                    max=year_choices.max(),
-                                    step=1,
-                                    value=[2012, 2015],
-                                    allowCross=False,
-                                    pushable=1,
-                                    tooltip={"placement": "bottom", "always_visible": True},
-                                    marks={
-                                        2006: '2006',
-                                        2009: '2009',
-                                        2012: '2012',
-                                        2015: '2015',
-                                        2018: '2018',
-                                        2021: '2021',
-                                        2023: '2023'
-                                    }
-                                ),
-
-                    ],width = 12)
-            ]),
+                            id='range_slider',
+                            min=year_choices.min(),
+                            max=year_choices.max(),
+                            step=1,
+                            value=[2008, 2019],
+                            allowCross=False,
+                            pushable=1,
+                            tooltip={"placement": "bottom", "always_visible": True},
+                            marks={
+                                2006: '2006',
+                                2009: '2009',
+                                2012: '2012',
+                                2015: '2015',
+                                2018: '2018',
+                                2021: '2021',
+                                2023: '2023'
+                            }
+                        )
+                    ],width = 12),
+                    dbc.Col([
+                        dbc.RadioItems(
+                            id='radio2',
+                            options=[
+                                {'label': ' Origins', 'value': 'Origins'},
+                                {'label': ' Destinations', 'value': 'Destinations'}
+                            ],
+                            value='Origins',
+                            labelStyle={'display': 'inline-block','text-align': 'left'}
+                        )
+                    ],width = 6),
+                    dbc.Col([
+                        dcc.Dropdown(
+                            id='dropdown2',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in destination_country_choices],
+                            value=destination_country_choices[0],
+                            multi = True
+                        )
+                    ], width = 6)
+                ]),
+                dbc.Row([
+                    dbc.Col([
+                        dcc.Graph('choropleth_map')
+                    ],width = 6),
+                    dbc.Col([  
+                        dcc.Graph('line_chart_timeline')
+                    ], width = 6)
+                ])
             ]
         )
 
@@ -704,7 +812,7 @@ def plot_map_of_routes(dd1,dd0):
                 )
 
         return fig
-
+#Table that displays destinations from origin city (selected)
 @app.callback(
     Output('routes_table','children'),
     Input('dropdown0','value'),
@@ -777,5 +885,126 @@ def table(dd1,dd0):
                 data=new_df.to_dict('records')
             )
         ])
+
+#TAB #4: TRENDS#
+
+#Filter dropdown options by radio button
+@app.callback(
+    Output('dropdown2', 'options'),
+    Output('dropdown2', 'value'),
+    Input('radio1', 'value')
+)
+def set_dd_options_from_radio_button2(selected_radio_button_value):
+        
+        if selected_radio_button_value == 'Origins':
+            options = [{'label': x, 'value': x} for x in origin_country_choices]
+            value = ['United States','Canada']
+        else:
+            options = [{'label': x, 'value': x} for x in destination_country_choices]
+            value = ['United States','Canada']
+        
+        return options, value
+
+#Choropleth map that shows which countries are travelled to in range of years
+@app.callback(
+    Output('choropleth_map','figure'),
+    Input('range_slider','value'),
+    Input('radio2','value')
+)
+def choropleth_map(range_slider_values,radio2):
+
+    filtered = hhi_df[['year','MoveFromCountry','MoveToCountry']]
+
+    #filtered = filtered[(filtered['year']>=2012) & (filtered['year']<=2015)]
+    filtered = filtered[(filtered['year']>=range_slider_values[0]) & (filtered['year']<=range_slider_values[1])]
+
+    map_df1 = filtered[['MoveToCountry']]
+    map_df2 = filtered[['MoveFromCountry']]
+
+    if 'Origins' in radio2:
+
+        country_counts = pd.DataFrame(map_df1.groupby('MoveToCountry').size()).reset_index()
+        country_counts.columns = ['Country', 'num_eps']
+
+        choropleth_map1 = px.choropleth_mapbox(country_counts,
+                                        geojson=geo_world_ok,
+                                        locations='Country',
+                                        color=country_counts['num_eps'],
+                                        color_continuous_scale='ylorrd',
+                                        range_color=(0, country_counts['num_eps'].max()),
+                                        hover_name='Country',
+                                        hover_data = {'num_eps':False,
+                                                        'Country':False},
+                                        mapbox_style = 'open-street-map',
+                                        zoom=1,
+                                        center={'lat':19,'lon':11},
+                                        opacity=0.6)
+
+        return choropleth_map1
+    else:
+        country_counts = pd.DataFrame(map_df2.groupby('MoveFromCountry').size()).reset_index()
+        country_counts.columns = ['Country', 'num_eps']
+
+        choropleth_map1 = px.choropleth_mapbox(country_counts,
+                                        geojson=geo_world_ok,
+                                        locations='Country',
+                                        color=country_counts['num_eps'],
+                                        color_continuous_scale='ylorrd',
+                                        range_color=(0, country_counts['num_eps'].max()),
+                                        hover_name='Country',
+                                        hover_data = {'num_eps':False,
+                                                        'Country':False},
+                                        mapbox_style = 'open-street-map',
+                                        zoom=1,
+                                        center={'lat':19,'lon':11},
+                                        opacity=0.6)
+
+        return choropleth_map1
+
+#Line chart timeline shows the # of episodes travelling to a country per year
+@app.callback(
+    Output('line_chart_timeline','figure'),
+    Input('range_slider','value'),
+    Input('radio2','value'),
+    Input('dropdown2','value')
+
+)
+def line_chart_timeline(range_slider_values, radio2, dd2):
+
+    filtered = hhi_df[['year','MoveFromCountry','MoveToCountry']]
+
+    #filtered = filtered[(filtered['year']>=2010) & (filtered['year']<=2015)]
+    filtered = filtered[(filtered['year']>=range_slider_values[0]) & (filtered['year']<=range_slider_values[1])]
+
+
+    if 'Origins' in radio2:
+        line_chart_df1 = filtered[['year','MoveFromCountry']]
+        line_chart_df1 = line_chart_df1[line_chart_df1['MoveFromCountry'].isin(dd2)]
+
+        year_country_counts = pd.DataFrame(line_chart_df1.groupby(['year','MoveFromCountry']).size()).reset_index()
+        year_country_counts.columns = ['year', 'MoveFromCountry','Count']
+
+        line_chart = px.line(
+            year_country_counts, 
+            x="year", 
+            y="Count", 
+            color='MoveFromCountry'
+        )
+        return line_chart
+    else:
+        line_chart_df2 = filtered[['year','MoveToCountry']]
+        line_chart_df2 = line_chart_df2[line_chart_df2['MoveToCountry'].isin(dd2)]
+
+        year_country_counts = pd.DataFrame(line_chart_df2.groupby(['year','MoveToCountry']).size()).reset_index()
+        year_country_counts.columns = ['year', 'MoveToCountry','Count']
+
+        line_chart = px.line(
+            year_country_counts, 
+            x="year", 
+            y="Count", 
+            color='MoveToCountry'
+        )
+        return line_chart
+
 if __name__=='__main__':
 	app.run_server()
