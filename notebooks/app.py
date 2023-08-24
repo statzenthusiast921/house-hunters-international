@@ -918,12 +918,12 @@ def choropleth_map(range_slider_values,radio2):
     #filtered = filtered[(filtered['year']>=2012) & (filtered['year']<=2015)]
     filtered = filtered[(filtered['year']>=range_slider_values[0]) & (filtered['year']<=range_slider_values[1])]
 
-    map_df1 = filtered[['MoveToCountry']]
-    map_df2 = filtered[['MoveFromCountry']]
+    map_df1 = filtered[['MoveFromCountry']]
+    map_df2 = filtered[['MoveToCountry']]
 
     if 'Origins' in radio2:
 
-        country_counts = pd.DataFrame(map_df1.groupby('MoveToCountry').size()).reset_index()
+        country_counts = pd.DataFrame(map_df1.groupby('MoveFromCountry').size()).reset_index()
         country_counts.columns = ['Country', 'num_eps']
 
         choropleth_map1 = px.choropleth_mapbox(country_counts,
@@ -933,33 +933,38 @@ def choropleth_map(range_slider_values,radio2):
                                         color_continuous_scale='ylorrd',
                                         range_color=(0, country_counts['num_eps'].max()),
                                         hover_name='Country',
-                                        hover_data = {'num_eps':False,
-                                                        'Country':False},
-                                        mapbox_style = 'open-street-map',
+                                        hover_data = {'num_eps':True,
+                                                        'Country':True},
+                                        mapbox_style = 'carto-positron',
+                                        template = 'plotly_dark',
                                         zoom=1,
+                                        title = 'During this time period, where did people move from?',
                                         center={'lat':19,'lon':11},
                                         opacity=0.6)
-
+        choropleth_map1.update_layout(coloraxis_colorbar_title_text = '# Episodes')
         return choropleth_map1
     else:
-        country_counts = pd.DataFrame(map_df2.groupby('MoveFromCountry').size()).reset_index()
+        country_counts = pd.DataFrame(map_df2.groupby('MoveToCountry').size()).reset_index()
         country_counts.columns = ['Country', 'num_eps']
 
-        choropleth_map1 = px.choropleth_mapbox(country_counts,
+        choropleth_map2 = px.choropleth_mapbox(country_counts,
                                         geojson=geo_world_ok,
                                         locations='Country',
                                         color=country_counts['num_eps'],
                                         color_continuous_scale='ylorrd',
                                         range_color=(0, country_counts['num_eps'].max()),
                                         hover_name='Country',
-                                        hover_data = {'num_eps':False,
-                                                        'Country':False},
-                                        mapbox_style = 'open-street-map',
+                                        hover_data = {'num_eps':True,
+                                                        'Country':True},
+                                        mapbox_style = 'carto-positron',
+                                        template = 'plotly_dark',
                                         zoom=1,
+                                        title = 'During this time period, where did people move to?',
                                         center={'lat':19,'lon':11},
                                         opacity=0.6)
+        choropleth_map2.update_layout(coloraxis_colorbar_title_text = '# Episodes')
 
-        return choropleth_map1
+        return choropleth_map2
 
 #Line chart timeline shows the # of episodes travelling to a country per year
 @app.callback(
@@ -988,8 +993,18 @@ def line_chart_timeline(range_slider_values, radio2, dd2):
             year_country_counts, 
             x="year", 
             y="Count", 
-            color='MoveFromCountry'
+            color='MoveFromCountry',
+            markers=True,
+            template = 'plotly_dark',
+            labels={
+                     "year": "Year",
+                     "Count": "# Episodes"
+            },
+            title = 'Was there a trend in episode release year by country?'
+
         )
+        line_chart.update_layout(legend_title="Country")
+
         return line_chart
     else:
         line_chart_df2 = filtered[['year','MoveToCountry']]
@@ -1002,8 +1017,17 @@ def line_chart_timeline(range_slider_values, radio2, dd2):
             year_country_counts, 
             x="year", 
             y="Count", 
-            color='MoveToCountry'
+            color='MoveToCountry',
+            markers=True,
+            template = 'plotly_dark',
+            labels={
+                     "year": "Year",
+                     "Count": "# Episodes"
+            },
+            title = 'Was there a trend in episode release year by country?'
         )
+        line_chart.update_layout(legend_title="Country")
+
         return line_chart
 
 if __name__=='__main__':
