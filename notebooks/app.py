@@ -5,7 +5,7 @@ import plotly.express as px
 import dash
 from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 
 
@@ -153,6 +153,12 @@ app.layout = html.Div([
                 html.Br()
                    ]),   
                 html.Div([
+                    html.P(dcc.Markdown('''**What is House Hunters?**'''))
+                ],style={'text-decoration': 'underline'}),
+                html.Div([
+                    html.P("House Hunters (HH) and House Hunters International (HHI) are unscripted television series in which each episode follows people making a decision about a new home purchase or rental.  The series follows individuals, couples, or families searching for a new home with the assistance of a local real estate agent. In each episode, the buyers must decide among three potential houses or apartments to buy or rent, ultimately choosing one before the end of the episode. The show concludes by revisiting the chosen home a few weeks or months later, when participants describe the changes they've made and the effect the new home has had on their life.")
+                ]),
+                html.Div([
                     html.P(dcc.Markdown('''**What is the purpose of this dashboard?**''')),
                 ],style={'text-decoration': 'underline'}),
                 html.Div([
@@ -160,27 +166,50 @@ app.layout = html.Div([
                     html.P("1.) Which cities/countries are people moving to?"),
                     html.P("2.) Which cities/countries are people moving from?"),
                     html.P("3.) How far are people travelling on average?"),
-                    html.P("4.) Is there any discernible trend with the origins or destinations?")
+                    html.P("4.) Is there any discernible trend with either (1) or (2) over time?")
                 ]),
                 html.Div([
                     html.P(dcc.Markdown('''**What data is being used for this analysis?**''')),
                 ],style={'text-decoration': 'underline'}),   
                 html.Div([
-                       html.P("Data was gathered over the course of a month through two methods:"),
-                       html.P(["1.) scraped from the link " ,html.A("here",href="https://thetvdb.com/series/house-hunters-international/allseasons/official"),' and then Name-Entity-Recognition (NER) was used to pull out geographical text.']),
-                       html.P(["2.) Painstakingly recorded by watching as much HHI as I could.  I would mark down the origin and destination in an Excel file and then load the data into a Python script that analyzed the locations using the ", html.A('geopy',href='https://geopy.readthedocs.io/en/stable/')," and ", html.A('h3',href='https://pypi.org/project/h3/'),' libraries to extract the latitudes, longitudes, and distances (in km) in between origins and destinations.'])
+                       html.P(["Data was gathered over the course of a month through two methods: (1) I scraped the data from the link " ,html.A("here",href="https://thetvdb.com/series/house-hunters-international/allseasons/official"),' and then used Name-Entity-Recognition (NER) to pull out geographical text. (2) Painstakingly, I recorded data in my spreadsheet by watching as much HHI as I could.  I would mark down the origin and destination in an Excel file and then load the data into a Python script that analyzed the locations using the ', html.A('geopy',href='https://geopy.readthedocs.io/en/stable/')," and ", html.A('h3',href='https://pypi.org/project/h3/'),' libraries to extract the latitudes, longitudes, and distances (in km) in between origins and destinations.'])
                 ]),
                 html.Div([
                     html.P(dcc.Markdown('''**What are the limitations of this data?**''')),
                 ],style={'text-decoration': 'underline'}),
                 html.Div(
                     children=[
-                       html.P(["Not all cities and countries were available. As much as I would love to sit down and watch every single episode of House Hunters International to fill in the gaps where the episode descriptions or episode titles were insufficient, I don't have that kind of time. The episodes with missing information were left out of the distance analyses."])
+                       html.P(["Not all cities and countries were available. As much as I would love to sit down and watch every single episode of House Hunters International to fill in the gaps where the episode descriptions or episode titles were insufficient, I don't have that kind of time. The episodes with missing information were left out of much of the analysis."])
                     ]
                 )
         ]),
         dcc.Tab(label='Countries',value='tab-2',style=tab_style, selected_style=tab_selected_style,
         children = [
+            dbc.Row([
+                #----Instructions Button #1
+                dbc.Col([
+                    html.Div([
+                        dbc.Button("Click Here for Instructions",id='open1',size='lg'),
+                    ],className="d-grid gap-2"),
+                    #Button for Instructions
+                    html.Div([
+                        dbc.Modal(
+                            children=[
+                                dbc.ModalHeader("Instructions"),
+                                dbc.ModalBody(
+                                    children=[
+                                        html.P('This tab has two sets of controls:'),
+                                        html.P('Using the origin/destination radio button and the country dropdown box together will alter both the map and bar chart to showcase the frequency of episodes that featured buyers/renters leaving or moving to the selected country.  The map features each city that has been featured in an episode as either an origin or destination for the selected country.')
+                                    ]
+                                ),
+                                dbc.ModalFooter(
+                                    dbc.Button("Close", id="close1")
+                                ),
+                            ],id="modal1", size="xl",scrollable=True
+                        )
+                    ])                
+                ])
+            ]),
             dbc.Row([
                 dbc.Col([
                     dbc.Card(id='card_a')
@@ -229,6 +258,31 @@ app.layout = html.Div([
         dcc.Tab(label='Cities',value='tab-3',style=tab_style, selected_style=tab_selected_style,
         children=[
             dbc.Row([
+                #----Instructions Button #2
+                dbc.Col([
+                    html.Div([
+                        dbc.Button("Click Here for Instructions",id='open2',size='lg'),
+                    ],className="d-grid gap-2"),
+                    #Button for Instructions
+                    html.Div([
+                        dbc.Modal(
+                            children=[
+                                dbc.ModalHeader("Instructions"),
+                                dbc.ModalBody(
+                                    children=[
+                                        html.P('This tab has two sets of controls:'),
+                                        html.P('To start, select a country from the top dropdown box.  This selection will filter the bottom dropdown box and showcase cities within the selected country.  These cities will be plotted on the map and lines will be drawn to showcase to where the buyers/renters moved to from the selected city.  Each of these moves will be documented in the table next to the map.')
+                                    ]
+                                ),
+                                dbc.ModalFooter(
+                                    dbc.Button("Close", id="close2")
+                                ),
+                            ],id="modal2", size="xl",scrollable=True
+                        )
+                    ])                
+                ])
+            ]),
+            dbc.Row([
                 dbc.Col([
                     dbc.Label('Choose a country: ')
                 ],width = 2),
@@ -265,6 +319,31 @@ app.layout = html.Div([
         ]),
         dcc.Tab(label='Trends',value='tab-4',style=tab_style, selected_style=tab_selected_style,
             children = [
+                dbc.Row([
+                #----Instructions Button #3
+                dbc.Col([
+                    html.Div([
+                        dbc.Button("Click Here for Instructions",id='open3',size='lg'),
+                    ],className="d-grid gap-2"),
+                    #Button for Instructions
+                    html.Div([
+                        dbc.Modal(
+                            children=[
+                                dbc.ModalHeader("Instructions"),
+                                dbc.ModalBody(
+                                    children=[
+                                        html.P('This tab has three sets of controls:'),
+                                        html.P('To start, select a range of years from the slider to alter both the choropleth map and the line chart.  The choropleth map showcases the frequency of episodes featured per country as either origins or destinations during the selected timeline.  The origins/destinations radio button will alter both charts in the same way as the radio button in the "Countries" tab.  The country dropdown box allows users to compare the episode frequency timeline of any country.')
+                                    ]
+                                ),
+                                dbc.ModalFooter(
+                                    dbc.Button("Close", id="close3")
+                                ),
+                            ],id="modal3", size="xl",scrollable=True
+                        )
+                    ])                
+                ])
+            ]),
                 dbc.Row([
                     dbc.Col([
                         dcc.RangeSlider(
@@ -385,13 +464,13 @@ def info_about_origins(dd_a, radio_select):
         metric1 = filtered.shape[0]
 
         #Metric 2 --> avg distance travelling away
-        remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
-        metric2 = int(remove0s['distance_km'].median())
+        remove0s = filtered[(filtered['distance_mi']>0) & (filtered['distance_mi'].notnull())]
+        metric2 = int(remove0s['distance_mi'].median())
 
         #Metric 3 --> max distance
-        country_ref = filtered['distance_km'].max()
-        metric3 = int(filtered['distance_km'].max())
-        max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveToCountry'].values[0]
+        country_ref = filtered['distance_mi'].max()
+        metric3 = int(filtered['distance_mi'].max())
+        max_dist_country = filtered[filtered['distance_mi']==country_ref]['MoveToCountry'].values[0]
 
 
         card_a = dbc.Card([
@@ -412,7 +491,7 @@ def info_about_origins(dd_a, radio_select):
         card_b = dbc.Card([
             dbc.CardBody([
                 html.P(f'Median distance to travel'),
-                html.H5(f"{metric2} km")
+                html.H5(f"{metric2} mi")
             ])
         ],
         style={'display': 'inline-block',
@@ -427,7 +506,7 @@ def info_about_origins(dd_a, radio_select):
         card_c = dbc.Card([
             dbc.CardBody([
                 html.P(f'Max distance to travel'),
-                html.H5(f"{metric3} km to {max_dist_country}")
+                html.H5(f"{metric3} mi to {max_dist_country}")
             ])
         ],
         style={'display': 'inline-block',
@@ -448,13 +527,13 @@ def info_about_origins(dd_a, radio_select):
         metric1 = filtered.shape[0]
 
         #Metric 2 --> avg distance travelling away
-        remove0s = filtered[(filtered['distance_km']>0) & (filtered['distance_km'].notnull())]
-        metric2 = int(remove0s['distance_km'].median())
+        remove0s = filtered[(filtered['distance_mi']>0) & (filtered['distance_mi'].notnull())]
+        metric2 = int(remove0s['distance_mi'].median())
 
         #Metric 3 --> max distance
-        country_ref = filtered['distance_km'].max()
-        metric3 = int(filtered['distance_km'].max())
-        max_dist_country = filtered[filtered['distance_km']==country_ref]['MoveFromCountry'].values[0]
+        country_ref = filtered['distance_mi'].max()
+        metric3 = int(filtered['distance_mi'].max())
+        max_dist_country = filtered[filtered['distance_mi']==country_ref]['MoveFromCountry'].values[0]
 
         card_a = dbc.Card([
             dbc.CardBody([
@@ -474,7 +553,7 @@ def info_about_origins(dd_a, radio_select):
         card_b = dbc.Card([
             dbc.CardBody([
                 html.P(f'Median distance to travel'),
-                html.H5(f"{metric2} km")
+                html.H5(f"{metric2} mi")
             ])
         ],
         style={'display': 'inline-block',
@@ -489,7 +568,7 @@ def info_about_origins(dd_a, radio_select):
         card_c = dbc.Card([
             dbc.CardBody([
                 html.P(f'Max distance to travel'),
-                html.H5(f"{metric3} km from {max_dist_country}")
+                html.H5(f"{metric3} mi from {max_dist_country}")
             ])
         ],
         style={'display': 'inline-block',
@@ -528,7 +607,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             color_continuous_scale="viridis",
             color="OriginCount",
             hover_data = {
-                "Origin":True,
+                "Origin":False,
                 "OriginCount":True,
                 "lat_orig":False,
                 "lon_orig":False
@@ -569,7 +648,7 @@ def plot_map_origin_dest_cities(dd_a, radio_select):
             color_continuous_scale="viridis",
             color="DestinationCount",
             hover_data = {
-                "Destination":True,
+                "Destination":False,
                 "DestinationCount":True,
                 "lat_dest":False,
                 "lon_dest":False
@@ -685,7 +764,7 @@ def plot_map_of_routes(dd1,dd0):
             'GeoCategory':'All','lat_orig':0,'lon_orig':0,
             'lat_dest':orig_lat,
             'lon_dest':orig_lon,
-            'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+            'distance_mi':0,'Skip': 'Can get data','DestinationCount': 1,
             'Legend':'Origin'
         }
         new_df = new_df.append(new_row, ignore_index = True)
@@ -696,14 +775,12 @@ def plot_map_of_routes(dd1,dd0):
             hover_name="Destination", 
             color="Legend",
             hover_data = {
-                "Destination":True,
+                "Destination":False,
                 "lat_dest":False,
                 "lat_dest":False,
                 "lon_dest":False,
-                "Legend":False
-            },
-            labels={
-                'Destination':'City'
+                "Legend":False,
+                "DestinationCount":False
             },
             size = "DestinationCount",
             zoom=3,
@@ -760,7 +837,7 @@ def plot_map_of_routes(dd1,dd0):
             'GeoCategory':'All','lat_orig':0,'lon_orig':0,
             'lat_dest':orig_lat,
             'lon_dest':orig_lon,
-            'distance_km':0,'Skip': 'Can get data','DestinationCount': 1,
+            'distance_mi':0,'Skip': 'Can get data','DestinationCount': 1,
             'Legend':'Origin'
         }
         new_df = new_df.append(new_row, ignore_index = True)
@@ -771,14 +848,12 @@ def plot_map_of_routes(dd1,dd0):
             hover_name="Destination", 
             color="Legend",
             hover_data = {
-                "Destination":True,
+                "Destination":False,
                 "lat_dest":False,
                 "lat_dest":False,
                 "lon_dest":False,
-                "Legend":False
-            },
-            labels={
-                'Destination':'City'
+                "Legend":False,
+                "DestinationCount":False
             },
             size = "DestinationCount",
             zoom=3,
@@ -831,7 +906,7 @@ def table(dd1,dd0):
         city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
         city_counts.columns = ['Destination', 'DestinationCount']
         new_df = filtered.merge(city_counts, on='Destination', how='inner')
-        new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+        new_df = new_df[['Origin','Destination','DestinationCount','distance_mi']]
         new_df = new_df.rename(columns={
                 new_df.columns[2]: "# Episodes" ,
                 new_df.columns[3]: "Distance" 
@@ -862,7 +937,7 @@ def table(dd1,dd0):
         city_counts = pd.DataFrame(filtered.groupby('Destination').size()).reset_index()
         city_counts.columns = ['Destination', 'DestinationCount']
         new_df = filtered.merge(city_counts, on='Destination', how='inner')
-        new_df = new_df[['Origin','Destination','DestinationCount','distance_km']]
+        new_df = new_df[['Origin','Destination','DestinationCount','distance_mi']]
         new_df = new_df.rename(columns={
                 new_df.columns[2]: "# Episodes" ,
                 new_df.columns[3]: "Distance" 
@@ -933,8 +1008,11 @@ def choropleth_map(range_slider_values,radio2):
                                         color_continuous_scale='ylorrd',
                                         range_color=(0, country_counts['num_eps'].max()),
                                         hover_name='Country',
+                                        labels={
+                                            "num_eps": "# Episodes"
+                                        },
                                         hover_data = {'num_eps':True,
-                                                        'Country':True},
+                                                        'Country':False},
                                         mapbox_style = 'carto-positron',
                                         template = 'plotly_dark',
                                         zoom=1,
@@ -953,9 +1031,12 @@ def choropleth_map(range_slider_values,radio2):
                                         color=country_counts['num_eps'],
                                         color_continuous_scale='ylorrd',
                                         range_color=(0, country_counts['num_eps'].max()),
+                                        labels={
+                                            "num_eps": "# Episodes"
+                                        },
                                         hover_name='Country',
                                         hover_data = {'num_eps':True,
-                                                        'Country':True},
+                                                        'Country':False},
                                         mapbox_style = 'carto-positron',
                                         template = 'plotly_dark',
                                         zoom=1,
@@ -996,9 +1077,9 @@ def line_chart_timeline(range_slider_values, radio2, dd2):
             color='MoveFromCountry',
             markers=True,
             template = 'plotly_dark',
-            labels={
-                     "year": "Year",
-                     "Count": "# Episodes"
+            labels={"year": "Year",
+                    "MoveFromCountry":'Country',
+                    "Count": "# Episodes"
             },
             title = 'Was there a trend in episode release year by country?'
 
@@ -1020,15 +1101,53 @@ def line_chart_timeline(range_slider_values, radio2, dd2):
             color='MoveToCountry',
             markers=True,
             template = 'plotly_dark',
-            labels={
-                     "year": "Year",
-                     "Count": "# Episodes"
+            labels={"year": "Year",
+                    "MoveToCountry":'Country',
+                    "Count": "# Episodes"
             },
             title = 'Was there a trend in episode release year by country?'
         )
         line_chart.update_layout(legend_title="Country")
 
         return line_chart
+
+
+
+@app.callback(
+    Output("modal1", "is_open"),
+    Input("open1", "n_clicks"), 
+    Input("close1", "n_clicks"),
+    State("modal1", "is_open")
+)
+
+def toggle_modal1(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("modal2", "is_open"),
+    Input("open2", "n_clicks"), 
+    Input("close2", "n_clicks"),
+    State("modal2", "is_open")
+)
+
+def toggle_modal2(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("modal3", "is_open"),
+    Input("open3", "n_clicks"), 
+    Input("close3", "n_clicks"),
+    State("modal3", "is_open")
+)
+
+def toggle_modal3(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
 
 if __name__=='__main__':
 	app.run_server()
