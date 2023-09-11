@@ -37,8 +37,7 @@ df_for_dict = df_for_dict.drop_duplicates(subset='MoveFromCity',keep='first')
 country_city_dict = df_for_dict.groupby('MoveFromCountry')['MoveFromCity'].apply(list).to_dict()
 #country_city_dict_sorted = {l: sorted(m) for l, m in country_city_dict.items()}
 
-geo_world = pd.read_json('https://raw.githubusercontent.com/statzenthusiast921/COVID19_Project/main/custom.geo.json')
- 
+geo_world = pd.read_json('https://raw.githubusercontent.com/statzenthusiast921/COVID19_Project/main/data/custom.geo.json')
 # country_conversion_dict = {
 #     'Dominican Rep.': "Dominican Republic", 
 #     'United States': 'United States of America', 
